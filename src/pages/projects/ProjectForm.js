@@ -4,6 +4,7 @@ import { getProject, createProject, updateProject } from '../../api/projects';
 import { getClients } from '../../api/clients';
 import { getProjectRate, setProjectRate, getClientRate } from '../../api/rates';
 import PageHeader from '../../components/PageHeader';
+import TaskBoard from '../../components/TaskBoard';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
@@ -70,7 +71,7 @@ export default function ProjectForm() {
   }
 
   return (
-    <div className="p-8 max-w-lg">
+    <div className="p-8 max-w-2xl">
       <PageHeader title={isEdit ? 'Edit Project' : 'New Project'} />
 
       {error && (
@@ -147,6 +148,8 @@ export default function ProjectForm() {
           </button>
         </div>
       </form>
+
+      {isEdit && <TaskBoard projectId={id} />}
     </div>
   );
 }
