@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
 import { createTimeEntry, updateTimeEntry, getTimeEntries } from '../../api/timeEntries';
+import { getTaskGroups } from '../../api/tasks';
 import PageHeader from '../../components/PageHeader';
 import { today, hoursFromRange } from '../../utils/dates';
 import { DateTime } from 'luxon';
 
-const EMPTY = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '' };
+const EMPTY = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
 
 export default function TimesheetForm() {
   const { id } = useParams();
@@ -19,6 +20,7 @@ export default function TimesheetForm() {
     project_id: location.state?.projectId || '',
   });
   const [projects, setProjects] = useState([]);
+  const [taskGroups, setTaskGroups] = useState([]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -49,12 +51,18 @@ export default function TimesheetForm() {
             description: entry.description || '',
             start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
             stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
+            task_id: entry.task_id ? String(entry.task_id) : '',
           });
         }
       })
       .catch((e) => setError(e.message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, form.project_id]);
+
+  useEffect(() => {
+    if (!form.project_id) { setTaskGroups([]); return; }
+    getTaskGroups(form.project_id).then(setTaskGroups).catch(() => setTaskGroups([]));
+  }, [form.project_id]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -82,9 +90,11 @@ export default function TimesheetForm() {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const { project_id, start_time, stop_time, ...entryData } = form;
+    const { project_id, start_time, stop_time, task_id, ...entryData } = form;
     const payload = {
       ...entryData,
+      hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
+      task_id: task_id || null,
       started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
       stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
     };
@@ -128,6 +138,27 @@ export default function TimesheetForm() {
             ))}
           </select>
         </div>
+        {taskGroups.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+            <select
+              name="task_id"
+              value={form.task_id}
+              onChange={handleChange}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            >
+              <option value="">No task</option>
+              {taskGroups.map((group) => (
+                <optgroup key={group.id} label={group.title}>
+                  {group.tasks.map((task) => (
+                    <option key={task.id} value={task.id}>{task.title}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
           <input
@@ -172,9 +203,8 @@ export default function TimesheetForm() {
             value={form.hours}
             onChange={handleChange}
             required
-            min="0.01"
-            max="24"
-            step="0.25"
+            min="0"
+            step="any"
             placeholder="e.g. 2.5"
             readOnly={timesProvided}
             className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${timesProvided ? 'bg-gray-50 text-gray-500' : ''}`}
