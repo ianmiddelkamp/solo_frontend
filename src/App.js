@@ -10,6 +10,9 @@ import TimesheetForm from './pages/timesheets/TimesheetForm';
 import InvoiceList from './pages/invoices/InvoiceList';
 import InvoiceForm from './pages/invoices/InvoiceForm';
 import InvoiceDetail from './pages/invoices/InvoiceDetail';
+import EstimateList from './pages/estimates/EstimateList';
+import EstimateForm from './pages/estimates/EstimateForm';
+import EstimateDetail from './pages/estimates/EstimateDetail';
 import SettingsPage from './pages/settings/SettingsPage';
 import TimerPage from './pages/timer/TimerPage';
 import { getToken } from './api/index';
@@ -45,6 +48,10 @@ export default function App() {
           <Route path="invoices" element={<InvoiceList />} />
           <Route path="invoices/new" element={<InvoiceForm />} />
           <Route path="invoices/:id" element={<InvoiceDetail />} />
+
+          <Route path="estimates" element={<EstimateList />} />
+          <Route path="estimates/new" element={<EstimateForm />} />
+          <Route path="estimates/:id" element={<EstimateDetail />} />
 
           <Route path="timer" element={<TimerPage />} />
           <Route path="settings" element={<SettingsPage />} />

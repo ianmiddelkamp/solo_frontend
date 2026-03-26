@@ -142,7 +142,7 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
           ✕
         </button>
       </div>
-      <div className="mt-1.5 ml-6 flex items-center gap-3">
+      <div className="mt-1.5 ml-6 flex items-center gap-3 flex-wrap">
         <StatusSelect status={task.status} onChange={handleStatusChange} />
         {editingEstimate ? (
           <input
@@ -163,8 +163,18 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
             className="text-xs text-gray-400 hover:text-indigo-600"
             title="Set estimate"
           >
-            {task.estimated_hours != null ? `${parseFloat(task.estimated_hours)}h` : '+ est.'}
+            {task.estimated_hours != null ? `est. ${parseFloat(task.estimated_hours)}h` : '+ est.'}
           </button>
+        )}
+        {task.actual_hours > 0 && (
+          <span className="text-xs text-gray-500" title="Actual time logged">
+            actual {parseFloat(task.actual_hours)}h
+          </span>
+        )}
+        {task.last_entry_date && (
+          <span className="text-xs text-gray-400" title="Date of last time entry">
+            {new Date(task.last_entry_date).toLocaleDateString()}
+          </span>
         )}
       </div>
     </div>
@@ -272,8 +282,13 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
         <span className="text-xs text-gray-400">
           {group.tasks.length}
           {(() => {
-            const total = group.tasks.reduce((sum, t) => sum + (t.estimated_hours != null ? parseFloat(t.estimated_hours) : 0), 0);
-            return total > 0 ? ` · ${total % 1 === 0 ? total : total.toFixed(2)}h` : '';
+            const est = parseFloat(group.estimated_hours_total) || 0;
+            const actual = parseFloat(group.actual_hours_total) || 0;
+            const fmt = (n) => n % 1 === 0 ? `${n}h` : `${n.toFixed(2)}h`;
+            if (actual > 0 && est > 0) return ` · ${fmt(actual)} / ${fmt(est)}`;
+            if (est > 0) return ` · est. ${fmt(est)}`;
+            if (actual > 0) return ` · ${fmt(actual)}`;
+            return '';
           })()}
         </span>
         {onMergeUp && (

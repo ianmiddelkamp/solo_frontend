@@ -7,6 +7,7 @@ const navItems = [
   { to: '/projects',   label: 'Projects' },
   { to: '/timesheets', label: 'Timesheets' },
   { to: '/timer',      label: 'Timer' },
+  { to: '/estimates',  label: 'Estimates' },
   { to: '/invoices',   label: 'Invoices' },
   { to: '/settings',   label: 'Settings' },
 ];
