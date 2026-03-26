@@ -44,11 +44,11 @@ REACT_APP_API_URL=http://your-api-host npm start
 | `/clients/:id/edit` | ClientForm | Edit an existing client |
 | `/projects` | ProjectList | View all projects |
 | `/projects/new` | ProjectForm | Create a new project |
-| `/projects/:id/edit` | ProjectForm | Edit project, manage task board, import SOW, manage attachments |
+| `/projects/:id/edit` | ProjectForm | Edit project, manage task board (with SOW import), manage attachments |
 | `/timesheets` | TimesheetList | View all time entries with invoice status and linked task |
 | `/timesheets/new` | TimesheetForm | Log a new time entry |
 | `/timesheets/:id/edit` | TimesheetForm | Edit a time entry |
-| `/timer` | TimerPage | Start/stop timer, select project and task |
+| `/timer` | TimerPage | Start/stop timer, select project and task, manage task board |
 | `/invoices` | InvoiceList | View all invoices with status badges |
 | `/invoices/new` | InvoiceForm | Generate an invoice from time entries |
 | `/invoices/:id` | InvoiceDetail | View line items, send, download, or regenerate PDF |
@@ -94,11 +94,11 @@ src/
 
 ### Task Board
 
-Projects have a kanban-style task board with drag-to-reorder. Tasks can be moved within or between groups. Each task has a status pill (To do / In progress / Done).
+Projects have a task board available on both the project edit page and the timer page. Task groups can be reordered with ↑/↓ buttons and merged into the group above. Tasks can be dragged to reorder within a group or moved to a different group via drag-and-drop. Each task has a status selector (To do / In progress / Done).
 
 ### SOW Import
 
-On the project edit page, upload a `.md`, `.txt`, or `.docx` Statement of Work. The backend AI parses it into task groups and tasks, which you can preview and edit before importing. Powered by a local Ollama model — no data leaves your machine.
+Upload a `.md`, `.txt`, or `.docx` Statement of Work (or paste text directly) from the task board. The backend AI parses it into a single task group with a flat task list — the AI picks the group title based on the document scope. Preview and edit before importing. Available on both the project page and the timer page. Powered by a local Ollama model — no data leaves your machine.
 
 ### Timer Integration
 
