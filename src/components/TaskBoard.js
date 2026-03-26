@@ -54,11 +54,18 @@ function StatusSelect({ status, onChange }) {
 function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, selected, dragHandleProps, isDragging }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
+  const [editingEstimate, setEditingEstimate] = useState(false);
+  const [estimate, setEstimate] = useState(task.estimated_hours != null ? String(task.estimated_hours) : '');
   const inputRef = useRef(null);
+  const estimateRef = useRef(null);
 
   useEffect(() => {
     if (editing) inputRef.current?.focus();
   }, [editing]);
+
+  useEffect(() => {
+    if (editingEstimate) estimateRef.current?.focus();
+  }, [editingEstimate]);
 
   async function commitTitle() {
     setEditing(false);
@@ -71,6 +78,16 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
   async function handleStatusChange(next) {
     await updateTask(projectId, groupId, task.id, { status: next });
     onUpdate(task.id, { status: next });
+  }
+
+  async function commitEstimate() {
+    setEditingEstimate(false);
+    const parsed = estimate.trim() === '' ? null : parseFloat(estimate);
+    const current = task.estimated_hours != null ? parseFloat(task.estimated_hours) : null;
+    if (parsed === current) return;
+    if (estimate.trim() !== '' && (isNaN(parsed) || parsed <= 0)) { setEstimate(current != null ? String(current) : ''); return; }
+    await updateTask(projectId, groupId, task.id, { estimated_hours: parsed });
+    onUpdate(task.id, { estimated_hours: parsed });
   }
 
   async function handleDelete() {
@@ -125,8 +142,30 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
           ✕
         </button>
       </div>
-      <div className="mt-1.5 ml-6">
+      <div className="mt-1.5 ml-6 flex items-center gap-3">
         <StatusSelect status={task.status} onChange={handleStatusChange} />
+        {editingEstimate ? (
+          <input
+            ref={estimateRef}
+            type="number"
+            min="0.01"
+            step="0.25"
+            value={estimate}
+            onChange={(e) => setEstimate(e.target.value)}
+            onBlur={commitEstimate}
+            onKeyDown={(e) => { if (e.key === 'Enter') commitEstimate(); if (e.key === 'Escape') { setEstimate(task.estimated_hours != null ? String(task.estimated_hours) : ''); setEditingEstimate(false); } }}
+            placeholder="0.00"
+            className="w-16 text-xs border-b border-indigo-400 outline-none bg-transparent text-gray-700"
+          />
+        ) : (
+          <button
+            onClick={() => setEditingEstimate(true)}
+            className="text-xs text-gray-400 hover:text-indigo-600"
+            title="Set estimate"
+          >
+            {task.estimated_hours != null ? `${parseFloat(task.estimated_hours)}h` : '+ est.'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -230,7 +269,13 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMerge
             {group.title}
           </span>
         )}
-        <span className="text-xs text-gray-400">{group.tasks.length}</span>
+        <span className="text-xs text-gray-400">
+          {group.tasks.length}
+          {(() => {
+            const total = group.tasks.reduce((sum, t) => sum + (t.estimated_hours != null ? parseFloat(t.estimated_hours) : 0), 0);
+            return total > 0 ? ` · ${total % 1 === 0 ? total : total.toFixed(2)}h` : '';
+          })()}
+        </span>
         {onMergeUp && (
           <button
             onClick={onMergeUp}
