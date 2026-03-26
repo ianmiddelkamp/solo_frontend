@@ -5,7 +5,7 @@ import { confirm } from '../services/dialog';
 const FILE_ICONS = {
   'application/pdf': '📄',
   'image/png': '🖼️', 'image/jpeg': '🖼️', 'image/gif': '🖼️', 'image/webp': '🖼️',
-  'text/plain': '📝', 'text/csv': '📊',
+  'text/plain': '📝', 'text/csv': '📊', 'text/markdown': '📝',
   'application/zip': '🗜️',
 };
 
@@ -93,7 +93,7 @@ export default function ProjectAttachments({ projectId }) {
         <p className="text-sm text-gray-500">
           {uploading ? 'Uploading…' : 'Drop files here or click to browse'}
         </p>
-        <p className="text-xs text-gray-400 mt-1">PDF, Word, Excel, images, text — max 20 MB</p>
+        <p className="text-xs text-gray-400 mt-1">PDF, Word, Excel, images, text, Markdown — max 20 MB</p>
         <input
           ref={inputRef}
           type="file"
