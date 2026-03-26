@@ -6,7 +6,6 @@ import { getProjectRate, setProjectRate, getClientRate } from '../../api/rates';
 import PageHeader from '../../components/PageHeader';
 import TaskBoard from '../../components/TaskBoard';
 import ProjectAttachments from '../../components/ProjectAttachments';
-import SowImport from '../../components/SowImport';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
@@ -16,7 +15,6 @@ export default function ProjectForm() {
   const isEdit = Boolean(id);
 
   const [form, setForm] = useState(EMPTY);
-  const [boardKey, setBoardKey] = useState(0);
   const [rate, setRateValue] = useState('');
   const [clients, setClients] = useState([]);
   const [error, setError] = useState(null);
@@ -32,7 +30,7 @@ export default function ProjectForm() {
 
       getProjectRate(id)
         .then((r) => setRateValue(r?.rate != null ? String(r.rate) : ''))
-        .catch(() => {}); // no rate yet is fine
+        .catch(() => { }); // no rate yet is fine
     }
   }, [id, isEdit]);
 
@@ -44,7 +42,7 @@ export default function ProjectForm() {
     if (name === 'client_id' && !isEdit && value) {
       getClientRate(value)
         .then((r) => { if (r?.rate != null) setRateValue(String(r.rate)); })
-        .catch(() => {});
+        .catch(() => { });
     }
   }
 
@@ -74,87 +72,100 @@ export default function ProjectForm() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8">
       <PageHeader title={isEdit ? 'Edit Project' : 'New Project'} />
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            required
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
+      <div className="flex gap-8 items-start">
+        <div className="w-96 flex-shrink-0">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Project Details</h3>
+          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                required
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+              <select
+                name="client_id"
+                value={form.client_id}
+                onChange={handleChange}
+                required
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              >
+                <option value="">Select a client…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+              <input
+                type="number"
+                name="rate"
+                value={rate}
+                onChange={(e) => setRateValue(e.target.value)}
+                min="0"
+                step="0.01"
+                placeholder="e.g. 150.00"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                name="description"
+                value={form.description}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Project'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/projects')}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-          <select
-            name="client_id"
-            value={form.client_id}
-            onChange={handleChange}
-            required
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="">Select a client…</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
-          <input
-            type="number"
-            name="rate"
-            value={rate}
-            onChange={(e) => setRateValue(e.target.value)}
-            min="0"
-            step="0.01"
-            placeholder="e.g. 150.00"
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            rows={3}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div className="flex items-center gap-3 pt-2">
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Project'}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/projects')}
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-
-      {isEdit && <SowImport projectId={id} onImported={() => setBoardKey((k) => k + 1)} />}
-      {isEdit && <TaskBoard key={boardKey} projectId={id} />}
-      {isEdit && <ProjectAttachments projectId={id} />}
+        {isEdit && (
+          <div className="flex-1 min-w-0">
+            <TaskBoard projectId={id} />
+          </div>
+        )}
+        {isEdit && (
+          <div className="flex-1 min-w-0">
+            <ProjectAttachments projectId={id} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -58,13 +58,15 @@ export default function TimerPage() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8">
       <h2 className="text-2xl font-semibold text-gray-800 mb-6">Timer</h2>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
       )}
 
+      <div className="flex gap-8 items-start">
+      <div className="w-96 flex-shrink-0">
       <div className="bg-white rounded-lg shadow p-8 space-y-6">
 
         {/* Clock display */}
@@ -162,15 +164,19 @@ export default function TimerPage() {
           )}
         </div>
       </div>
+      </div>
 
-      {projectId && (
-        <TaskBoard
-          projectId={projectId}
-          selectedTaskId={taskId}
-          onSelectTask={(id) => setTaskId(id)}
-          taskUpdate={taskUpdate}
-        />
-      )}
+        {projectId && (
+          <div className="flex-1 min-w-0">
+            <TaskBoard
+              projectId={projectId}
+              selectedTaskId={taskId}
+              onSelectTask={(id) => setTaskId(id)}
+              taskUpdate={taskUpdate}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

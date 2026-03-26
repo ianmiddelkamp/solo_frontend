@@ -13,6 +13,7 @@ import {
   useSortable,
   arrayMove,
 } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import {
   getTaskGroups,
@@ -26,6 +27,7 @@ import {
   reorderTasks,
 } from '../api/tasks';
 import { confirm } from '../services/dialog';
+import SowImport from './SowImport';
 
 const STATUSES = ['todo', 'in_progress', 'done'];
 const STATUS_LABEL = { todo: 'To do', in_progress: 'In progress', done: 'Done' };
@@ -35,21 +37,17 @@ const STATUS_ACTIVE_CLASS = {
   done: 'bg-green-100 text-green-700',
 };
 
-function StatusPills({ status, onChange }) {
+function StatusSelect({ status, onChange }) {
   return (
-    <div className="flex rounded overflow-hidden border border-gray-200 flex-shrink-0">
+    <select
+      value={status}
+      onChange={(e) => onChange(e.target.value)}
+      className={`text-xs font-medium rounded px-1.5 py-0.5 border-0 outline-none cursor-pointer ${STATUS_ACTIVE_CLASS[status]}`}
+    >
       {STATUSES.map((s) => (
-        <button
-          key={s}
-          onClick={() => onChange(s)}
-          className={`text-xs px-2 py-0.5 font-medium transition-colors ${
-            status === s ? STATUS_ACTIVE_CLASS[s] : 'bg-white text-gray-400 hover:text-gray-600'
-          }`}
-        >
-          {STATUS_LABEL[s]}
-        </button>
+        <option key={s} value={s}>{STATUS_LABEL[s]}</option>
       ))}
-    </div>
+    </select>
   );
 }
 
@@ -128,7 +126,7 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
         </button>
       </div>
       <div className="mt-1.5 ml-6">
-        <StatusPills status={task.status} onChange={handleStatusChange} />
+        <StatusSelect status={task.status} onChange={handleStatusChange} />
       </div>
     </div>
   );
@@ -162,7 +160,7 @@ function SortableTask({ task, projectId, groupId, onUpdate, onDelete, onSelect, 
   );
 }
 
-function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId, dragHandleProps, isDragging }) {
+function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onMergeUp, onMoveUp, onMoveDown, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [title, setTitle] = useState(group.title);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -202,17 +200,19 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
 
   const taskIds = group.tasks.map((t) => `task-${t.id}`);
 
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `group-drop-${group.id}`,
+    data: { type: 'group', group },
+  });
+
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 shadow-sm ${isDragging ? 'opacity-40' : ''}`}>
+    <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
       {/* Group header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-100">
-        <button
-          {...dragHandleProps}
-          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
-          aria-label="Drag to reorder group"
-        >
-          ⠿
-        </button>
+        <div className="flex flex-col">
+          <button onClick={onMoveUp} disabled={!onMoveUp} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group up">▲</button>
+          <button onClick={onMoveDown} disabled={!onMoveDown} className="text-gray-300 hover:text-gray-500 disabled:opacity-0 leading-none text-xs" aria-label="Move group down">▼</button>
+        </div>
         {editingTitle ? (
           <input
             ref={titleRef}
@@ -231,6 +231,16 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
           </span>
         )}
         <span className="text-xs text-gray-400">{group.tasks.length}</span>
+        {onMergeUp && (
+          <button
+            onClick={onMergeUp}
+            className="text-xs text-gray-400 hover:text-indigo-600"
+            aria-label="Merge into group above"
+            title="Merge into group above"
+          >
+            ↑ Merge
+          </button>
+        )}
         <button
           onClick={handleDeleteGroup}
           className="text-red-400 hover:text-red-600 text-xs"
@@ -241,7 +251,7 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
       </div>
 
       {/* Tasks */}
-      <div className="px-1 py-1">
+      <div ref={setDropRef} className={`px-1 py-1 rounded-b-lg transition-colors ${isOver ? 'bg-indigo-50' : ''}`}>
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {group.tasks.map((task) => (
             <SortableTask
@@ -285,40 +295,11 @@ function TaskGroupCard({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTa
   );
 }
 
-function SortableGroup({ group, projectId, onUpdateGroup, onDeleteGroup, onAddTask, onUpdateTask, onDeleteTask, onSelectTask, selectedTaskId }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: `group-${group.id}`,
-    data: { type: 'group', group },
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <TaskGroupCard
-        group={group}
-        projectId={projectId}
-        onUpdateGroup={onUpdateGroup}
-        onDeleteGroup={onDeleteGroup}
-        onAddTask={onAddTask}
-        onUpdateTask={onUpdateTask}
-        onDeleteTask={onDeleteTask}
-        onSelectTask={onSelectTask}
-        selectedTaskId={selectedTaskId}
-        dragHandleProps={{ ...attributes, ...listeners }}
-        isDragging={isDragging}
-      />
-    </div>
-  );
-}
 
 export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, taskUpdate }) {
   const [groups, setGroups] = useState([]);
   const [newGroupTitle, setNewGroupTitle] = useState('');
-  const [activeItem, setActiveItem] = useState(null);
+  const [activeTask, setActiveTask] = useState(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -359,6 +340,39 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     setGroups((prev) => prev.filter((g) => g.id !== id));
   }
 
+  async function handleMoveUp(id) {
+    const idx = groups.findIndex((g) => g.id === id);
+    if (idx <= 0) return;
+    const reordered = arrayMove(groups, idx, idx - 1);
+    setGroups(reordered);
+    await reorderTaskGroups(projectId, reordered.map((g) => g.id));
+  }
+
+  async function handleMoveDown(id) {
+    const idx = groups.findIndex((g) => g.id === id);
+    if (idx === -1 || idx >= groups.length - 1) return;
+    const reordered = arrayMove(groups, idx, idx + 1);
+    setGroups(reordered);
+    await reorderTaskGroups(projectId, reordered.map((g) => g.id));
+  }
+
+  async function handleMergeUp(id) {
+    const idx = groups.findIndex((g) => g.id === id);
+    if (idx <= 0) return;
+    const target = groups[idx - 1];
+    const src = groups[idx];
+    if (!await confirm(`Merge "${src.title}" into "${target.title}"? This cannot be undone.`, { confirmLabel: 'Merge' })) return;
+    const mergedTasks = [...target.tasks, ...src.tasks];
+    const mergedIds = mergedTasks.map((t) => t.id);
+    setGroups((prev) =>
+      prev
+        .map((g) => (g.id === target.id ? { ...g, tasks: mergedTasks } : g))
+        .filter((g) => g.id !== src.id)
+    );
+    await reorderTasks(projectId, src.id, mergedIds, target.id);
+    await deleteTaskGroup(projectId, src.id);
+  }
+
   function handleAddTask(groupId, task) {
     setGroups((prev) =>
       prev.map((g) => (g.id === groupId ? { ...g, tasks: [...g.tasks, task] } : g))
@@ -384,26 +398,16 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
   }
 
   function handleDragStart(event) {
-    setActiveItem(event.active.data.current);
+    setActiveTask(event.active.data.current);
   }
 
   async function handleDragEnd(event) {
     const { active, over } = event;
-    setActiveItem(null);
+    setActiveTask(null);
     if (!over || active.id === over.id) return;
 
     const activeData = active.data.current;
     const overData = over.data.current;
-
-    if (activeData.type === 'group') {
-      // Reorder groups
-      const oldIdx = groups.findIndex((g) => `group-${g.id}` === active.id);
-      const newIdx = groups.findIndex((g) => `group-${g.id}` === over.id);
-      if (oldIdx === -1 || newIdx === -1) return;
-      const reordered = arrayMove(groups, oldIdx, newIdx);
-      setGroups(reordered);
-      await reorderTaskGroups(projectId, reordered.map((g) => g.id));
-    }
 
     if (activeData.type === 'task') {
       // Find source group
@@ -448,10 +452,8 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
     }
   }
 
-  const groupIds = groups.map((g) => `group-${g.id}`);
-
   return (
-    <div className="mt-10">
+    <div className="max-w-[750px]">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">Task Groups</h3>
 
       <DndContext
@@ -460,34 +462,30 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
-          <div className="space-y-4">
-            {groups.map((group) => (
-              <SortableGroup
-                key={group.id}
-                group={group}
-                projectId={projectId}
-                onUpdateGroup={handleUpdateGroup}
-                onDeleteGroup={handleDeleteGroup}
-                onAddTask={handleAddTask}
-                onUpdateTask={handleUpdateTask}
-                onDeleteTask={handleDeleteTask}
-                onSelectTask={onSelectTask}
-                selectedTaskId={selectedTaskId}
-              />
-            ))}
-          </div>
-        </SortableContext>
+        <div className="space-y-4">
+          {groups.map((group, idx) => (
+            <TaskGroupCard
+              key={group.id}
+              group={group}
+              projectId={projectId}
+              onUpdateGroup={handleUpdateGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onMoveUp={idx > 0 ? () => handleMoveUp(group.id) : null}
+              onMoveDown={idx < groups.length - 1 ? () => handleMoveDown(group.id) : null}
+              onMergeUp={idx > 0 ? () => handleMergeUp(group.id) : null}
+              onAddTask={handleAddTask}
+              onUpdateTask={handleUpdateTask}
+              onDeleteTask={handleDeleteTask}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTaskId}
+            />
+          ))}
+        </div>
 
         <DragOverlay>
-          {activeItem?.type === 'group' && (
-            <div className="bg-white rounded-lg border border-indigo-300 shadow-lg px-3 py-2 opacity-90">
-              <span className="font-semibold text-sm">{activeItem.group.title}</span>
-            </div>
-          )}
-          {activeItem?.type === 'task' && (
+          {activeTask?.type === 'task' && (
             <div className="bg-white rounded border border-indigo-300 shadow-lg px-2 py-1.5 opacity-90">
-              <span className="text-sm">{activeItem.task.title}</span>
+              <span className="text-sm">{activeTask.task.title}</span>
             </div>
           )}
         </DragOverlay>
@@ -509,6 +507,8 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
           Add group
         </button>
       </form>
+
+      <SowImport projectId={projectId} onImported={() => getTaskGroups(projectId).then(setGroups)} />
     </div>
   );
 }
