@@ -243,6 +243,49 @@ export default function EstimateDetail() {
           Thank you for your business.
         </div>
       </div>
+      
+        {/* Changes since last sent */}
+        {estimate.changes && (
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-md">
+            <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-3">Changes since last sent</p>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr style={{ backgroundColor: brand }}>
+                  <th className="px-3 py-1.5 text-left font-semibold text-white">Change</th>
+                  <th className="px-3 py-1.5 text-left font-semibold text-white">Detail</th>
+                </tr>
+              </thead>
+              <tbody>
+                {estimate.changes.added?.map((item, i) => (
+                  <tr key={`added-${i}`} className="border-b border-amber-100">
+                    <td className="px-3 py-1.5 text-green-700 font-medium">Added</td>
+                    <td className="px-3 py-1.5 text-gray-700">{item.description} ({parseFloat(item.hours).toFixed(2)}h)</td>
+                  </tr>
+                ))}
+                {estimate.changes.removed?.map((item, i) => (
+                  <tr key={`removed-${i}`} className="border-b border-amber-100">
+                    <td className="px-3 py-1.5 text-red-600 font-medium">Removed</td>
+                    <td className="px-3 py-1.5 text-gray-700">{item.description}</td>
+                  </tr>
+                ))}
+                {estimate.changes.changed?.map((item, i) => (
+                  <tr key={`changed-${i}`} className="border-b border-amber-100">
+                    <td className="px-3 py-1.5 text-amber-700 font-medium">Revised</td>
+                    <td className="px-3 py-1.5 text-gray-700">
+                      {item.description} ({parseFloat(item.old_hours).toFixed(2)}h → {parseFloat(item.new_hours).toFixed(2)}h)
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td className="px-3 py-1.5 font-semibold text-gray-700">Total</td>
+                  <td className="px-3 py-1.5 text-gray-700">
+                    ${parseFloat(estimate.changes.previous_total).toFixed(2)} → ${parseFloat(estimate.changes.current_total).toFixed(2)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
     </div>
   );
 }
