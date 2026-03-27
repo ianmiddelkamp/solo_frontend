@@ -3,13 +3,14 @@ import { clearToken } from '../api/index';
 import TimerStatus from './Timer';
 
 const navItems = [
-  { to: '/clients',    label: 'Clients' },
-  { to: '/projects',   label: 'Projects' },
-  { to: '/timesheets', label: 'Timesheets' },
-  { to: '/timer',      label: 'Timer' },
-  { to: '/estimates',  label: 'Estimates' },
-  { to: '/invoices',   label: 'Invoices' },
-  { to: '/settings',   label: 'Settings' },
+  { to: '/clients',      label: 'Clients' },
+  { to: '/projects',     label: 'Projects' },
+  { to: '/timesheets',   label: 'Timesheets' },
+  { to: '/timer',        label: 'Timer' },
+  { to: '/estimates',    label: 'Estimates' },
+  { to: '/invoices',     label: 'Invoices' },
+  { to: '/charge-codes', label: 'Charge Codes' },
+  { to: '/settings',     label: 'Settings' },
 ];
 
 export default function Layout() {

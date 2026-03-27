@@ -15,6 +15,7 @@ import EstimateForm from './pages/estimates/EstimateForm';
 import EstimateDetail from './pages/estimates/EstimateDetail';
 import SettingsPage from './pages/settings/SettingsPage';
 import TimerPage from './pages/timer/TimerPage';
+import ChargeCodesPage from './pages/charge-codes/ChargeCodesPage';
 import { getToken } from './api/index';
 import { TimerProvider } from './context/TimerContext';
 import DialogProvider from './components/DialogProvider';
@@ -54,6 +55,7 @@ export default function App() {
           <Route path="estimates/:id" element={<EstimateDetail />} />
 
           <Route path="timer" element={<TimerPage />} />
+          <Route path="charge-codes" element={<ChargeCodesPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

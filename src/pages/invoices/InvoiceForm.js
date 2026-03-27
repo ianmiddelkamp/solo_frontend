@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getClients } from '../../api/clients';
-import { createInvoice } from '../../api/invoices';
+import { getUnbilledEntries, createInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
-import { today, firstOfMonth } from '../../utils/dates';
+import { today, firstOfMonth, formatDate } from '../../utils/dates';
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [form, setForm] = useState({ client_id: '', start_date: firstOfMonth(), end_date: today() });
+  const [step, setStep] = useState('setup'); // 'setup' | 'select'
+  const [entries, setEntries] = useState([]);
+  const [selected, setSelected] = useState(new Set());
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
@@ -25,18 +29,151 @@ export default function InvoiceForm() {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   }
 
-  async function handleSubmit(e) {
+  async function handleLoadEntries(e) {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getUnbilledEntries(form.client_id, form.start_date, form.end_date);
+      if (data.length === 0) {
+        setError('No unbilled time entries found for this client in the selected period.');
+        return;
+      }
+      setEntries(data);
+      setSelected(new Set(data.map((entry) => entry.id)));
+      setStep('select');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleEntry(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() { setSelected(new Set(entries.map((e) => e.id))); }
+  function deselectAll() { setSelected(new Set()); }
+
+  async function handleGenerate() {
+    if (selected.size === 0) return;
     setGenerating(true);
     setError(null);
     try {
-      const invoice = await createInvoice(form);
+      const invoice = await createInvoice({
+        client_id: form.client_id,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        time_entry_ids: [...selected],
+      });
       navigate(`/invoices/${invoice.id}`);
     } catch (err) {
       setError(err.message);
     } finally {
       setGenerating(false);
     }
+  }
+
+  const clientName = clients.find((c) => String(c.id) === form.client_id)?.name;
+
+  // Group entries by project or charge code for display
+  const groups = entries.reduce((acc, entry) => {
+    const key = entry.project ? `project-${entry.project.id}` : `cc-${entry.charge_code?.id}`;
+    const label = entry.project ? entry.project.name : `${entry.charge_code?.code}${entry.charge_code?.description ? ` — ${entry.charge_code.description}` : ''}`;
+    if (!acc[key]) acc[key] = { label, entries: [] };
+    acc[key].entries.push(entry);
+    return acc;
+  }, {});
+
+  const selectedTotal = entries
+    .filter((e) => selected.has(e.id))
+    .reduce((sum, e) => sum + parseFloat(e.hours), 0);
+
+  if (step === 'select') {
+    return (
+      <div className="p-8 max-w-3xl">
+        <PageHeader title="New Invoice" />
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
+        )}
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">{clientName}</h2>
+              <p className="text-sm text-gray-400">{form.start_date} → {form.end_date}</p>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <button onClick={selectAll} className="text-indigo-600 hover:text-indigo-800">Select all</button>
+              <span className="text-gray-300">|</span>
+              <button onClick={deselectAll} className="text-indigo-600 hover:text-indigo-800">Deselect all</button>
+            </div>
+          </div>
+
+          <div className="space-y-5">
+            {Object.values(groups).map((group) => (
+              <div key={group.label}>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 pb-1 border-b border-gray-100">
+                  {group.label}
+                </div>
+                <div className="space-y-1">
+                  {group.entries.map((entry) => (
+                    <label key={entry.id} className="flex items-start gap-3 p-2 rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(entry.id)}
+                        onChange={() => toggleEntry(entry.id)}
+                        className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm text-gray-500 w-24 shrink-0">{formatDate(entry.date)}</span>
+                          <span className="text-sm font-medium text-gray-900">{parseFloat(entry.hours).toFixed(2)} hrs</span>
+                          {entry.task && <span className="text-sm text-gray-400">{entry.task.title}</span>}
+                        </div>
+                        {entry.description && (
+                          <p className="text-xs text-gray-400 mt-0.5 ml-[6.75rem] truncate">{entry.description}</p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              <span className="font-medium">{selected.size}</span> of {entries.length} entries selected
+              {' · '}<span className="font-medium">{selectedTotal.toFixed(2)} hrs</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => { setStep('setup'); setError(null); }}
+                className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={generating || selected.size === 0}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {generating ? 'Generating…' : 'Generate Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -47,7 +184,7 @@ export default function InvoiceForm() {
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
       )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
+      <form onSubmit={handleLoadEntries} className="bg-white rounded-lg shadow p-6 space-y-5">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
           <select
@@ -87,17 +224,13 @@ export default function InvoiceForm() {
           </div>
         </div>
 
-        <p className="text-xs text-gray-400">
-          All unbilled time entries for the selected client within this date range will be included.
-        </p>
-
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            disabled={generating}
+            disabled={loading || !form.client_id}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
           >
-            {generating ? 'Generating…' : 'Generate Invoice'}
+            {loading ? 'Loading…' : 'Load Entries →'}
           </button>
           <button
             type="button"

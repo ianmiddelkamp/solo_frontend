@@ -1,13 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
-import { createTimeEntry, updateTimeEntry, getTimeEntries } from '../../api/timeEntries';
+import { getClients } from '../../api/clients';
+import { getChargeCodes } from '../../api/chargeCodes';
+import {
+  createTimeEntry, updateTimeEntry,
+  getTimeEntries, getTimeEntry,
+  createChargeCodeTimeEntry, updateChargeCodeTimeEntry,
+} from '../../api/timeEntries';
 import { getTaskGroups } from '../../api/tasks';
 import PageHeader from '../../components/PageHeader';
 import { today, hoursFromRange } from '../../utils/dates';
 import { DateTime } from 'luxon';
 
-const EMPTY = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
+const EMPTY_PROJECT = { project_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '', task_id: '' };
+const EMPTY_CHARGE = { charge_code_id: '', client_id: '', date: today(), hours: '', description: '', start_time: '', stop_time: '' };
 
 export default function TimesheetForm() {
   const { id } = useParams();
@@ -15,73 +22,109 @@ export default function TimesheetForm() {
   const location = useLocation();
   const isEdit = Boolean(id);
 
-  const [form, setForm] = useState({
-    ...EMPTY,
-    project_id: location.state?.projectId || '',
-  });
+  // Detect mode from location state or default to project
+  const initialMode = location.state?.chargeCodeId ? 'charge_code' : 'project';
+
+  const [mode, setMode] = useState(initialMode);
+  const [form, setForm] = useState(
+    mode === 'project'
+      ? { ...EMPTY_PROJECT, project_id: location.state?.projectId || '' }
+      : { ...EMPTY_CHARGE, charge_code_id: location.state?.chargeCodeId || '', client_id: location.state?.clientId || '' }
+  );
   const [projects, setProjects] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [chargeCodes, setChargeCodes] = useState([]);
   const [taskGroups, setTaskGroups] = useState([]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const timesProvided = form.start_time && form.stop_time;
 
+  // Load reference data
   useEffect(() => {
     getProjects()
       .then((ps) => {
         setProjects(ps);
-        if (!isEdit && !form.project_id && ps.length > 0) {
+        if (!isEdit && mode === 'project' && !form.project_id && ps.length > 0) {
           setForm((prev) => ({ ...prev, project_id: String(ps[0].id) }));
         }
       })
       .catch((e) => setError(e.message));
+
+    getClients().then(setClients).catch(() => {});
+    getChargeCodes().then(setChargeCodes).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load existing entry for edit
   useEffect(() => {
-    if (!isEdit || !form.project_id) return;
-    getTimeEntries(form.project_id)
-      .then((entries) => {
-        const entry = entries.find((e) => String(e.id) === String(id));
-        if (entry) {
+    if (!isEdit) return;
+
+    if (mode === 'charge_code') {
+      getTimeEntry(id)
+        .then((entry) => {
           setForm({
-            project_id: String(form.project_id),
+            charge_code_id: String(entry.charge_code_id || ''),
+            client_id: String(entry.client_id || ''),
             date: entry.date,
             hours: entry.hours,
             description: entry.description || '',
             start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
             stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
-            task_id: entry.task_id ? String(entry.task_id) : '',
           });
-        }
-      })
-      .catch((e) => setError(e.message));
+        })
+        .catch((e) => setError(e.message));
+    } else {
+      if (!form.project_id) return;
+      getTimeEntries(form.project_id)
+        .then((entries) => {
+          const entry = entries.find((e) => String(e.id) === String(id));
+          if (entry) {
+            setForm({
+              project_id: String(form.project_id),
+              date: entry.date,
+              hours: entry.hours,
+              description: entry.description || '',
+              start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
+              stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
+              task_id: entry.task_id ? String(entry.task_id) : '',
+            });
+          }
+        })
+        .catch((e) => setError(e.message));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, form.project_id]);
+  }, [isEdit, mode, form.project_id]);
 
+  // Load task groups when project changes
   useEffect(() => {
-    if (!form.project_id) { setTaskGroups([]); return; }
+    if (mode !== 'project' || !form.project_id) { setTaskGroups([]); return; }
     getTaskGroups(form.project_id).then(setTaskGroups).catch(() => setTaskGroups([]));
-  }, [form.project_id]);
+  }, [mode, form.project_id]);
+
+  function switchMode(newMode) {
+    setMode(newMode);
+    setError(null);
+    setTaskGroups([]);
+    if (newMode === 'project') {
+      setForm({ ...EMPTY_PROJECT, project_id: projects[0] ? String(projects[0].id) : '' });
+    } else {
+      setForm({ ...EMPTY_CHARGE, charge_code_id: chargeCodes[0] ? String(chargeCodes[0].id) : '' });
+    }
+  }
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
-
-      // Auto-calculate hours when both times and date are set
       const date = name === 'date' ? value : updated.date;
       const start = name === 'start_time' ? value : updated.start_time;
       const stop = name === 'stop_time' ? value : updated.stop_time;
-
       if (date && start && stop) {
         const startISO = `${date}T${start}`;
         const stopISO = `${date}T${stop}`;
-        if (stopISO > startISO) {
-          updated.hours = hoursFromRange(startISO, stopISO);
-        }
+        if (stopISO > startISO) updated.hours = hoursFromRange(startISO, stopISO);
       }
-
       return updated;
     });
   }
@@ -90,19 +133,35 @@ export default function TimesheetForm() {
     e.preventDefault();
     setSaving(true);
     setError(null);
-    const { project_id, start_time, stop_time, task_id, ...entryData } = form;
-    const payload = {
-      ...entryData,
-      hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
-      task_id: task_id || null,
-      started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
-      stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
-    };
+
     try {
-      if (isEdit) {
-        await updateTimeEntry(project_id, id, payload);
+      if (mode === 'project') {
+        const { project_id, start_time, stop_time, task_id, ...entryData } = form;
+        const payload = {
+          ...entryData,
+          hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
+          task_id: task_id || null,
+          started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
+          stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
+        };
+        if (isEdit) {
+          await updateTimeEntry(project_id, id, payload);
+        } else {
+          await createTimeEntry(project_id, payload);
+        }
       } else {
-        await createTimeEntry(project_id, payload);
+        const { start_time, stop_time, ...entryData } = form;
+        const payload = {
+          ...entryData,
+          hours: Math.round(parseFloat(entryData.hours) * 100) / 100,
+          started_at: start_time ? DateTime.fromISO(`${form.date}T${start_time}`).toISO() : null,
+          stopped_at: stop_time ? DateTime.fromISO(`${form.date}T${stop_time}`).toISO() : null,
+        };
+        if (isEdit) {
+          await updateChargeCodeTimeEntry(id, payload);
+        } else {
+          await createChargeCodeTimeEntry(payload);
+        }
       }
       navigate('/timesheets');
     } catch (err) {
@@ -121,42 +180,108 @@ export default function TimesheetForm() {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Project *</label>
-          <select
-            name="project_id"
-            value={form.project_id}
-            onChange={handleChange}
-            required
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-          >
-            <option value="">Select a project…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}{p.client ? ` — ${p.client.name}` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        {taskGroups.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
-            <select
-              name="task_id"
-              value={form.task_id}
-              onChange={handleChange}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+
+        {/* Mode toggle */}
+        {!isEdit && (
+          <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm font-medium">
+            <button
+              type="button"
+              onClick={() => switchMode('project')}
+              className={`flex-1 py-2 transition-colors ${mode === 'project' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
             >
-              <option value="">No task</option>
-              {taskGroups.map((group) => (
-                <optgroup key={group.id} label={group.title}>
-                  {group.tasks.map((task) => (
-                    <option key={task.id} value={task.id}>{task.title}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+              Project
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('charge_code')}
+              className={`flex-1 py-2 transition-colors ${mode === 'charge_code' ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+            >
+              Charge Code
+            </button>
           </div>
+        )}
+
+        {mode === 'project' ? (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Project *</label>
+              <select
+                name="project_id"
+                value={form.project_id}
+                onChange={handleChange}
+                required
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="">Select a project…</option>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.client ? ` — ${p.client.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {taskGroups.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Task</label>
+                <select
+                  name="task_id"
+                  value={form.task_id}
+                  onChange={handleChange}
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">No task</option>
+                  {taskGroups.map((group) => (
+                    <optgroup key={group.id} label={group.title}>
+                      {group.tasks.map((task) => (
+                        <option key={task.id} value={task.id}>{task.title}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Charge Code *</label>
+              {chargeCodes.length === 0 ? (
+                <p className="text-sm text-gray-400">
+                  No charge codes yet. <a href="/charge-codes" className="text-indigo-600 hover:underline">Add one in Charge Codes.</a>
+                </p>
+              ) : (
+                <select
+                  name="charge_code_id"
+                  value={form.charge_code_id}
+                  onChange={handleChange}
+                  required
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="">Select a charge code…</option>
+                  {chargeCodes.map((cc) => (
+                    <option key={cc.id} value={cc.id}>
+                      {cc.code}{cc.description ? ` — ${cc.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+              <select
+                name="client_id"
+                value={form.client_id}
+                onChange={handleChange}
+                required
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+                <option value="">Select a client…</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
 
         <div>
@@ -192,8 +317,6 @@ export default function TimesheetForm() {
             />
           </div>
         </div>
-
-
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Hours *</label>

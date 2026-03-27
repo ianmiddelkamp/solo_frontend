@@ -203,7 +203,9 @@ export default function InvoiceDetail() {
             {invoice.invoice_line_items?.map((item, i) => (
               <tr key={item.id} style={i % 2 === 1 ? { backgroundColor: '#f9fafb' } : {}}>
                 <td className="px-3 py-2 text-sm text-gray-600 border-b border-gray-200">{formatDate(item.time_entry?.date)}</td>
-                <td className="px-3 py-2 text-sm text-gray-600 border-b border-gray-200">{item.time_entry?.project?.name}</td>
+                <td className="px-3 py-2 text-sm text-gray-600 border-b border-gray-200">
+                  {item.time_entry?.project?.name || item.time_entry?.charge_code?.code || '—'}
+                </td>
                 <td className="px-3 py-2 text-sm text-gray-600 border-b border-gray-200">{item.description || '—'}</td>
                 <td className="px-3 py-2 text-sm text-gray-900 text-right border-b border-gray-200">{parseFloat(item.hours).toFixed(2)}</td>
                 <td className="px-3 py-2 text-sm text-gray-900 text-right border-b border-gray-200">${parseFloat(item.rate).toFixed(2)}</td>

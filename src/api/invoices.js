@@ -3,6 +3,12 @@ import { apiFetch, getToken } from './index';
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
 export const getInvoices = () => apiFetch('/invoices');
+export const getUnbilledEntries = (clientId, startDate, endDate) => {
+  const params = new URLSearchParams({ client_id: clientId });
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+  return apiFetch(`/invoices/unbilled_entries?${params}`);
+};
 export const getInvoice = (id) => apiFetch(`/invoices/${id}`);
 export const createInvoice = (data) =>
   apiFetch('/invoices', { method: 'POST', body: JSON.stringify(data) });
