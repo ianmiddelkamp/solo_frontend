@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
 import { getClients } from '../../api/clients';
-import { getChargeCodes } from '../../api/chargeCodes';
+import { getChargeCodes, createChargeCode } from '../../api/chargeCodes';
 import {
   createTimeEntry, updateTimeEntry,
   getTimeEntries, getTimeEntry,
@@ -37,6 +37,8 @@ export default function TimesheetForm() {
   const [taskGroups, setTaskGroups] = useState([]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [newCc, setNewCc] = useState(null); // null = hidden, {} = open
+  const [savingCc, setSavingCc] = useState(false);
 
   const timesProvided = form.start_time && form.stop_time;
 
@@ -106,17 +108,24 @@ export default function TimesheetForm() {
     setMode(newMode);
     setError(null);
     setTaskGroups([]);
+    const clientId = form.client_id || '';
     if (newMode === 'project') {
-      setForm({ ...EMPTY_PROJECT, project_id: projects[0] ? String(projects[0].id) : '' });
+      setForm({ ...EMPTY_PROJECT, project_id: projects[0] ? String(projects[0].id) : '', client_id: clientId });
     } else {
-      setForm({ ...EMPTY_CHARGE, charge_code_id: chargeCodes[0] ? String(chargeCodes[0].id) : '' });
+      setForm({ ...EMPTY_CHARGE, charge_code_id: chargeCodes[0] ? String(chargeCodes[0].id) : '', client_id: clientId });
     }
   }
+
+  const filteredProjects = form.client_id
+    ? projects.filter((p) => String(p.client?.id) === form.client_id)
+    : projects;
 
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
+      // Clear project when client changes
+      if (name === 'client_id') updated.project_id = '';
       const date = name === 'date' ? value : updated.date;
       const start = name === 'start_time' ? value : updated.start_time;
       const stop = name === 'stop_time' ? value : updated.stop_time;
@@ -181,6 +190,23 @@ export default function TimesheetForm() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-5">
 
+        {/* Client — always visible */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+          <select
+            name="client_id"
+            value={form.client_id}
+            onChange={handleChange}
+            required
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          >
+            <option value="">Select a client…</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Mode toggle */}
         {!isEdit && (
           <div className="flex rounded-md border border-gray-200 overflow-hidden text-sm font-medium">
@@ -213,10 +239,8 @@ export default function TimesheetForm() {
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
                 <option value="">Select a project…</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}{p.client ? ` — ${p.client.name}` : ''}
-                  </option>
+                {filteredProjects.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
@@ -244,42 +268,89 @@ export default function TimesheetForm() {
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Charge Code *</label>
-              {chargeCodes.length === 0 ? (
-                <p className="text-sm text-gray-400">
-                  No charge codes yet. <a href="/charge-codes" className="text-indigo-600 hover:underline">Add one in Charge Codes.</a>
-                </p>
-              ) : (
-                <select
-                  name="charge_code_id"
-                  value={form.charge_code_id}
-                  onChange={handleChange}
-                  required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
-                  <option value="">Select a charge code…</option>
-                  {chargeCodes.map((cc) => (
-                    <option key={cc.id} value={cc.id}>
-                      {cc.code}{cc.description ? ` — ${cc.description}` : ''}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm font-medium text-gray-700">Charge Code *</label>
+                {!newCc && (
+                  <button type="button" onClick={() => setNewCc({ code: '', description: '', rate: '' })}
+                    className="text-xs text-indigo-600 hover:text-indigo-800">
+                    + New
+                  </button>
+                )}
+              </div>
               <select
-                name="client_id"
-                value={form.client_id}
+                name="charge_code_id"
+                value={form.charge_code_id}
                 onChange={handleChange}
-                required
+                required={!newCc}
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
-                <option value="">Select a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                <option value="">Select a charge code…</option>
+                {chargeCodes.map((cc) => (
+                  <option key={cc.id} value={cc.id}>
+                    {cc.code}{cc.description ? ` — ${cc.description}` : ''}
+                  </option>
                 ))}
               </select>
+
+              {newCc && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-md border border-gray-200 space-y-2">
+                  <p className="text-xs font-medium text-gray-600">New charge code</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      placeholder="Code *"
+                      value={newCc.code}
+                      onChange={(e) => setNewCc((p) => ({ ...p, code: e.target.value.toUpperCase() }))}
+                      className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5 font-mono uppercase"
+                    />
+                    <input
+                      placeholder="Description"
+                      value={newCc.description}
+                      onChange={(e) => setNewCc((p) => ({ ...p, description: e.target.value }))}
+                      className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    placeholder="Rate (optional)"
+                    value={newCc.rate}
+                    min="0"
+                    step="0.01"
+                    onChange={(e) => setNewCc((p) => ({ ...p, rate: e.target.value }))}
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-1.5"
+                  />
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={savingCc || !newCc.code.trim()}
+                      onClick={async () => {
+                        setSavingCc(true);
+                        try {
+                          const created = await createChargeCode({
+                            user_id: 1,
+                            code: newCc.code.trim(),
+                            description: newCc.description.trim() || null,
+                            rate: newCc.rate !== '' ? parseFloat(newCc.rate) : null,
+                          });
+                          setChargeCodes((prev) => [...prev, created].sort((a, b) => a.code.localeCompare(b.code)));
+                          setForm((prev) => ({ ...prev, charge_code_id: String(created.id) }));
+                          setNewCc(null);
+                        } catch (e) {
+                          setError(e.message);
+                        } finally {
+                          setSavingCc(false);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {savingCc ? 'Saving…' : 'Save'}
+                    </button>
+                    <button type="button" onClick={() => setNewCc(null)}
+                      className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -350,7 +421,7 @@ export default function TimesheetForm() {
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || Boolean(newCc)}
             className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
           >
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Log Time'}

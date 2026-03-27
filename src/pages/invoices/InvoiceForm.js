@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { getClients } from '../../api/clients';
 import { getUnbilledEntries, createInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
@@ -7,22 +7,29 @@ import { today, firstOfMonth, formatDate } from '../../utils/dates';
 
 export default function InvoiceForm() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const preloaded = location.state; // { entries, clientId } when coming from TimesheetList
+
   const [clients, setClients] = useState([]);
-  const [form, setForm] = useState({ client_id: '', start_date: firstOfMonth(), end_date: today() });
-  const [step, setStep] = useState('setup'); // 'setup' | 'select'
-  const [entries, setEntries] = useState([]);
-  const [selected, setSelected] = useState(new Set());
+  const [form, setForm] = useState({ client_id: preloaded?.clientId || '', start_date: firstOfMonth(), end_date: today() });
+  const [step, setStep] = useState(preloaded?.entries ? 'select' : 'setup');
+  const [entries, setEntries] = useState(preloaded?.entries || []);
+  const [selected, setSelected] = useState(new Set(preloaded?.entries?.map((e) => e.id) || []));
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
+    if (preloaded) {
+      navigate(location.pathname, { replace: true, state: null });
+    }
     getClients()
       .then((cs) => {
         setClients(cs);
-        if (cs.length > 0) setForm((prev) => ({ ...prev, client_id: String(cs[0].id) }));
+        if (!preloaded && cs.length > 0) setForm((prev) => ({ ...prev, client_id: String(cs[0].id) }));
       })
       .catch((e) => setError(e.message));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleChange(e) {
@@ -157,7 +164,7 @@ export default function InvoiceForm() {
             <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => { setStep('setup'); setError(null); }}
+                onClick={() => preloaded ? navigate('/timesheets') : (setStep('setup'), setError(null))}
                 className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
               >
                 ← Back

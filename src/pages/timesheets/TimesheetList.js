@@ -1,81 +1,182 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useState, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { getClients } from '../../api/clients';
 import { getProjects } from '../../api/projects';
-import { getTimeEntries, deleteTimeEntry, getAllTimeEntries, deleteChargeCodeTimeEntry } from '../../api/timeEntries';
+import { getAllTimeEntries, deleteTimeEntry, deleteChargeCodeTimeEntry } from '../../api/timeEntries';
 import PageHeader from '../../components/PageHeader';
 import { formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
 
-const CHARGE_CODES_KEY = '__charge_codes__';
-
 export default function TimesheetList() {
+  const navigate = useNavigate();
+
+  const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
-  const [selectedKey, setSelectedKey] = useState('');
   const [entries, setEntries] = useState([]);
+  const [selected, setSelected] = useState(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const isChargeCodeMode = selectedKey === CHARGE_CODES_KEY;
+  const [filters, setFilters] = useState({
+    clientId: '',
+    projectId: '',
+    status: 'all',
+    hideChargeCodes: false,
+  });
 
+  // Load reference data
   useEffect(() => {
-    getProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (ps.length > 0) setSelectedKey(String(ps[0].id));
-      })
-      .catch((e) => setError(e.message));
+    getClients().then(setClients).catch(() => {});
+    getProjects().then(setProjects).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (!selectedKey) return;
+  // Filter projects by selected client
+  const visibleProjects = filters.clientId
+    ? projects.filter((p) => String(p.client?.id) === filters.clientId)
+    : projects;
+
+  // Load entries whenever filters change
+  const loadEntries = useCallback(() => {
     setLoading(true);
     setError(null);
+    setSelected(new Set());
 
-    const fetch = isChargeCodeMode
-      ? getAllTimeEntries({ charge_codes_only: true })
-      : getTimeEntries(selectedKey);
+    const params = {};
+    if (filters.clientId) params.client_id = filters.clientId;
+    if (filters.projectId) params.project_id = filters.projectId;
+    if (filters.status !== 'all') params.status = filters.status;
+    if (filters.hideChargeCodes) params.hide_charge_codes = 'true';
 
-    fetch
+    getAllTimeEntries(params)
       .then(setEntries)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
-  }, [selectedKey, isChargeCodeMode]);
+  }, [filters]);
 
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+
+  function setFilter(key, value) {
+    setFilters((prev) => {
+      const next = { ...prev, [key]: value };
+      // Clear project when client changes
+      if (key === 'clientId') next.projectId = '';
+      return next;
+    });
+  }
+
+  // Selection
+  function toggleAll() {
+    if (selected.size === entries.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(entries.map((e) => e.id)));
+    }
+  }
+
+  function toggleOne(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  // Create Invoice button logic
+  const selectedEntries = entries.filter((e) => selected.has(e.id));
+  const allSelectedUnbilled = selectedEntries.length > 0 && selectedEntries.every((e) => !e.invoice_line_item);
+  const selectedClientIds = new Set(
+    selectedEntries.map((e) => e.project ? String(e.project.client_id) : String(e.client_id))
+  );
+  const canCreateInvoice = allSelectedUnbilled && selectedClientIds.size === 1;
+
+  function handleCreateInvoice() {
+    const clientId = [...selectedClientIds][0];
+    navigate('/invoices/new', { state: { entries: selectedEntries, clientId } });
+  }
+
+  // Delete
   async function handleDelete(entry) {
     if (!await confirm('Delete this time entry?')) return;
     try {
-      if (isChargeCodeMode) {
+      if (entry.charge_code) {
         await deleteChargeCodeTimeEntry(entry.id);
       } else {
-        await deleteTimeEntry(selectedKey, entry.id);
+        await deleteTimeEntry(entry.project.id, entry.id);
       }
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+      setSelected((prev) => { const next = new Set(prev); next.delete(entry.id); return next; });
     } catch (e) {
       alert(e.message);
     }
   }
 
+  function clientNameForEntry(entry) {
+    return entry.project?.client?.name || entry.client?.name || '—';
+  }
+
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours || 0), 0);
+  const allChecked = entries.length > 0 && selected.size === entries.length;
+  const someChecked = selected.size > 0 && selected.size < entries.length;
 
   return (
     <div className="p-8">
       <PageHeader title="Timesheets" actionLabel="+ Log Time" actionTo="/timesheets/new" />
 
-      <div className="mb-6 flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-700">View</label>
+      {/* Filters */}
+      <div className="mb-5 flex flex-wrap items-center gap-3">
         <select
-          value={selectedKey}
-          onChange={(e) => setSelectedKey(e.target.value)}
+          value={filters.clientId}
+          onChange={(e) => setFilter('clientId', e.target.value)}
           className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
         >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}{p.client ? ` — ${p.client.name}` : ''}
-            </option>
-          ))}
-          <option disabled>──────────</option>
-          <option value={CHARGE_CODES_KEY}>Charge Code Entries</option>
+          <option value="">All Clients</option>
+          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
+
+        <select
+          value={filters.projectId}
+          onChange={(e) => setFilter('projectId', e.target.value)}
+          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option value="">All Projects</option>
+          {visibleProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) => setFilter('status', e.target.value)}
+          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+        >
+          <option value="all">All</option>
+          <option value="unbilled">Unbilled</option>
+          <option value="billed">Invoiced</option>
+        </select>
+
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={filters.hideChargeCodes}
+            onChange={(e) => setFilter('hideChargeCodes', e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Hide charge codes
+        </label>
+
+        {selected.size > 0 && (
+          <div className="ml-auto flex items-center gap-3">
+            <span className="text-sm text-gray-500">{selected.size} selected</span>
+            {canCreateInvoice ? (
+              <button
+                onClick={handleCreateInvoice}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                Create Invoice
+              </button>
+            ) : allSelectedUnbilled && selectedClientIds.size > 1 ? (
+              <span className="text-sm text-amber-600">Selected entries span multiple clients</span>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {loading && <p className="text-gray-500">Loading…</p>}
@@ -87,65 +188,86 @@ export default function TimesheetList() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                  {isChargeCodeMode
-                    ? <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Charge Code</th>
-                    : <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
-                  }
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
-                  <th className="px-6 py-3" />
+                  <th className="px-4 py-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      ref={(el) => { if (el) el.indeterminate = someChecked; }}
+                      onChange={toggleAll}
+                      className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project / Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {entries.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
-                      {isChargeCodeMode ? 'No charge code entries yet.' : 'No time entries for this project.'}
-                    </td>
+                    <td colSpan={9} className="px-6 py-8 text-center text-gray-400">No time entries found.</td>
                   </tr>
                 )}
-                {entries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 text-sm text-gray-900">{formatDate(entry.date)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
-                    {isChargeCodeMode
-                      ? <td className="px-6 py-4 text-sm text-gray-500">
-                          <span className="font-mono font-medium text-gray-700">{entry.charge_code?.code}</span>
-                          {entry.charge_code?.description && <span className="text-gray-400"> · {entry.charge_code.description}</span>}
-                        </td>
-                      : <td className="px-6 py-4 text-sm text-gray-500">{entry.task?.title || '—'}</td>
-                    }
-                    <td className="px-6 py-4 text-sm text-gray-500">{entry.description || '—'}</td>
-                    <td className="px-6 py-4 text-sm">
-                      {entry.invoice_line_item?.invoice
-                        ? <Link
-                            to={`/invoices/${entry.invoice_line_item.invoice.id}`}
-                            className="text-indigo-600 hover:text-indigo-800 font-medium"
-                          >
-                            {entry.invoice_line_item.invoice.number}
-                          </Link>
-                        : <span className="text-gray-400">Unbilled</span>
-                      }
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm space-x-3">
-                      <Link
-                        to={`/timesheets/${entry.id}/edit`}
-                        state={isChargeCodeMode
-                          ? { chargeCodeId: entry.charge_code_id, clientId: entry.client_id }
-                          : { projectId: selectedKey }
+                {entries.map((entry) => {
+                  const invoiced = Boolean(entry.invoice_line_item?.invoice);
+                  return (
+                    <tr key={entry.id} className={`hover:bg-gray-50 ${selected.has(entry.id) ? 'bg-indigo-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(entry.id)}
+                          onChange={() => toggleOne(entry.id)}
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDate(entry.date)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{clientNameForEntry(entry)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        {entry.project
+                          ? entry.project.name
+                          : <span className="font-mono text-xs bg-gray-100 px-1.5 py-0.5 rounded">{entry.charge_code?.code}</span>
                         }
-                        className="text-indigo-600 hover:text-indigo-800"
-                      >
-                        Edit
-                      </Link>
-                      <button onClick={() => handleDelete(entry)} className="text-red-500 hover:text-red-700">
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{entry.task?.title || '—'}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{entry.description || '—'}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {invoiced
+                          ? <Link to={`/invoices/${entry.invoice_line_item.invoice.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium">
+                              {entry.invoice_line_item.invoice.number}
+                            </Link>
+                          : <span className="text-gray-400">Unbilled</span>
+                        }
+                      </td>
+                      <td className="px-4 py-3 text-right text-sm space-x-3 whitespace-nowrap">
+                        {invoiced ? (
+                          <span className="text-gray-300">Locked</span>
+                        ) : (
+                          <>
+                            <Link
+                              to={`/timesheets/${entry.id}/edit`}
+                              state={entry.charge_code
+                                ? { chargeCodeId: entry.charge_code_id, clientId: entry.client_id }
+                                : { projectId: entry.project?.id }
+                              }
+                              className="text-indigo-600 hover:text-indigo-800"
+                            >
+                              Edit
+                            </Link>
+                            <button onClick={() => handleDelete(entry)} className="text-red-500 hover:text-red-700">
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getInvoice, updateInvoice, downloadPdf, regeneratePdf, sendInvoice } from '../../api/invoices';
+import { getInvoice, updateInvoice, deleteInvoice, downloadPdf, regeneratePdf, sendInvoice } from '../../api/invoices';
 import { getBusinessProfile } from '../../api/businessProfile';
 import { formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
@@ -65,6 +65,16 @@ export default function InvoiceDetail() {
       alert(e.message);
     } finally {
       setRegenerating(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!await confirm('Delete this invoice? This cannot be undone.', { title: 'Delete Invoice', confirmLabel: 'Delete' })) return;
+    try {
+      await deleteInvoice(id);
+      navigate('/invoices');
+    } catch (e) {
+      alert(e.message);
     }
   }
 
@@ -136,6 +146,12 @@ export default function InvoiceDetail() {
             className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
             {regenerating ? 'Regenerating…' : 'Regenerate PDF'}
+          </button>
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 border border-red-200 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
+          >
+            Delete
           </button>
         </div>
       </div>
