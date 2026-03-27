@@ -198,7 +198,7 @@ export default function TimesheetForm() {
             value={form.client_id}
             onChange={handleChange}
             required
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
           >
             <option value="">Select a client…</option>
             {clients.map((c) => (
@@ -236,7 +236,7 @@ export default function TimesheetForm() {
                 value={form.project_id}
                 onChange={handleChange}
                 required
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
               >
                 <option value="">Select a project…</option>
                 {filteredProjects.map((p) => (
@@ -251,7 +251,7 @@ export default function TimesheetForm() {
                   name="task_id"
                   value={form.task_id}
                   onChange={handleChange}
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
                 >
                   <option value="">No task</option>
                   {taskGroups.map((group) => (
@@ -282,7 +282,7 @@ export default function TimesheetForm() {
                 value={form.charge_code_id}
                 onChange={handleChange}
                 required={!newCc}
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
               >
                 <option value="">Select a charge code…</option>
                 {chargeCodes.map((cc) => (
@@ -363,7 +363,7 @@ export default function TimesheetForm() {
             value={form.date}
             onChange={handleChange}
             required
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -374,7 +374,7 @@ export default function TimesheetForm() {
               name="start_time"
               value={form.start_time}
               onChange={handleChange}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
             />
           </div>
           <div>
@@ -384,7 +384,7 @@ export default function TimesheetForm() {
               name="stop_time"
               value={form.stop_time}
               onChange={handleChange}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
             />
           </div>
         </div>
@@ -414,7 +414,7 @@ export default function TimesheetForm() {
             onChange={handleChange}
             rows={3}
             placeholder="What did you work on?"
-            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
           />
         </div>
 

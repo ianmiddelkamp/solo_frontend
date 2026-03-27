@@ -24,6 +24,21 @@ export default function TimesheetList() {
     hideChargeCodes: false,
   });
 
+  const [sort, setSort] = useState({ column: 'date', direction: 'desc' });
+
+  function toggleSort(column) {
+    setSort((prev) =>
+      prev.column === column
+        ? { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+        : { column, direction: 'asc' }
+    );
+  }
+
+  function sortIndicator(column) {
+    if (sort.column !== column) return <span className="ml-1 text-gray-300">↕</span>;
+    return <span className="ml-1">{sort.direction === 'asc' ? '↑' : '↓'}</span>;
+  }
+
   // Load reference data
   useEffect(() => {
     getClients().then(setClients).catch(() => {});
@@ -114,6 +129,19 @@ export default function TimesheetList() {
     return entry.project?.client?.name || entry.client?.name || '—';
   }
 
+  const sortedEntries = [...entries].sort((a, b) => {
+    const dir = sort.direction === 'asc' ? 1 : -1;
+    switch (sort.column) {
+      case 'date':        return dir * a.date.localeCompare(b.date);
+      case 'hours':       return dir * (parseFloat(a.hours) - parseFloat(b.hours));
+      case 'client':      return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
+      case 'project':     return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
+      case 'task':        return dir * (a.task?.title || '').localeCompare(b.task?.title || '');
+      case 'description': return dir * (a.description || '').localeCompare(b.description || '');
+      default:            return 0;
+    }
+  });
+
   const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours || 0), 0);
   const allChecked = entries.length > 0 && selected.size === entries.length;
   const someChecked = selected.size > 0 && selected.size < entries.length;
@@ -127,7 +155,7 @@ export default function TimesheetList() {
         <select
           value={filters.clientId}
           onChange={(e) => setFilter('clientId', e.target.value)}
-          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
         >
           <option value="">All Clients</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -136,7 +164,7 @@ export default function TimesheetList() {
         <select
           value={filters.projectId}
           onChange={(e) => setFilter('projectId', e.target.value)}
-          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
         >
           <option value="">All Projects</option>
           {visibleProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -145,7 +173,7 @@ export default function TimesheetList() {
         <select
           value={filters.status}
           onChange={(e) => setFilter('status', e.target.value)}
-          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
         >
           <option value="all">All</option>
           <option value="unbilled">Unbilled</option>
@@ -197,12 +225,22 @@ export default function TimesheetList() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hours</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Project / Code</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  {[
+                    { key: 'date', label: 'Date' },
+                    { key: 'hours', label: 'Hours' },
+                    { key: 'client', label: 'Client' },
+                    { key: 'project', label: 'Project / Code' },
+                    { key: 'task', label: 'Task' },
+                    { key: 'description', label: 'Description' },
+                  ].map(({ key, label }) => (
+                    <th
+                      key={key}
+                      onClick={() => toggleSort(key)}
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:text-gray-700"
+                    >
+                      {label}{sortIndicator(key)}
+                    </th>
+                  ))}
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -213,7 +251,7 @@ export default function TimesheetList() {
                     <td colSpan={9} className="px-6 py-8 text-center text-gray-400">No time entries found.</td>
                   </tr>
                 )}
-                {entries.map((entry) => {
+                {sortedEntries.map((entry) => {
                   const invoiced = Boolean(entry.invoice_line_item?.invoice);
                   return (
                     <tr key={entry.id} className={`hover:bg-gray-50 ${selected.has(entry.id) ? 'bg-indigo-50' : ''}`}>
