@@ -18,7 +18,7 @@ A React 19 single-page application for managing clients, projects, time tracking
 ### Prerequisites
 
 - Node.js 18+
-- The [Rails API backend](../invoice_app) running on `http://localhost:3000`
+- The [Rails API backend](https://github.com/ianmiddelkamp/solo_backend) running on `http://localhost:3000`
 
 ### Install and Run
 
