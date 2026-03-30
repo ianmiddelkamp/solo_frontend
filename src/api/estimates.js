@@ -2,7 +2,13 @@ import { apiFetch, getToken } from './index';
 
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
 
-export const getEstimates = () => apiFetch('/estimates');
+export const getEstimates = (projectId) => {
+  let url = '/estimates';
+  if (projectId) {
+    url += `?project_id=${projectId}`;
+  }
+  return apiFetch(url);
+}
 export const getEstimate = (id) => apiFetch(`/estimates/${id}`);
 export const createEstimate = (data) =>
   apiFetch('/estimates', { method: 'POST', body: JSON.stringify(data) });

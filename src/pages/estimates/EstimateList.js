@@ -4,13 +4,7 @@ import { getEstimates, deleteEstimate } from '../../api/estimates';
 import PageHeader from '../../components/PageHeader';
 import { confirm } from '../../services/dialog';
 import { formatDate } from '../../utils/dates';
-
-const STATUS_STYLES = {
-  draft:    'bg-gray-100 text-gray-700',
-  sent:     'bg-blue-100 text-blue-800',
-  accepted: 'bg-green-100 text-green-800',
-  declined: 'bg-red-100 text-red-800',
-};
+import { STATUS_STYLES } from '../../utils/constants';
 
 export default function EstimateList() {
   const [estimates, setEstimates] = useState([]);

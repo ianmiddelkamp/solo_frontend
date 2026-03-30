@@ -84,6 +84,7 @@ export default function TimesheetForm() {
           if (entry) {
             setForm({
               project_id: String(form.project_id),
+              client_id: String(entry.client_id || ''),
               date: entry.date,
               hours: entry.hours,
               description: entry.description || '',

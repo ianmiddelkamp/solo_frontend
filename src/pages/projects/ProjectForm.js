@@ -5,7 +5,9 @@ import { getClients } from '../../api/clients';
 import { getProjectRate, setProjectRate, getClientRate } from '../../api/rates';
 import PageHeader from '../../components/PageHeader';
 import TaskBoard from '../../components/TaskBoard';
+import ProjectEstimates from '../../components/ProjectEstimates';
 import ProjectAttachments from '../../components/ProjectAttachments';
+import { createEstimate } from '../../api/estimates';
 
 const EMPTY = { name: '', client_id: '', description: '' };
 
@@ -19,6 +21,7 @@ export default function ProjectForm() {
   const [clients, setClients] = useState([]);
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [creatingEstimate, setCreatingEstimate] = useState(false);
 
   useEffect(() => {
     getClients().then(setClients).catch((e) => setError(e.message));
@@ -155,11 +158,19 @@ export default function ProjectForm() {
 
         </div>
 
+
+
         {isEdit && (
           <div className="flex-1 min-w-0">
             <TaskBoard projectId={id} />
           </div>
         )}
+        {isEdit && (
+          <div  className="flex-1 min-w-0">
+            <ProjectEstimates projectId={id} />
+          </div>
+        )
+        }
         {isEdit && (
           <div className="flex-1 min-w-0">
             <ProjectAttachments projectId={id} />

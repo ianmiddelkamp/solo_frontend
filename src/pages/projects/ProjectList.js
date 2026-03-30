@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { getProjects, deleteProject } from '../../api/projects';
 import PageHeader from '../../components/PageHeader';
 import { confirm } from '../../services/dialog';
@@ -8,7 +8,7 @@ export default function ProjectList() {
   const [projects, setProjects] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const navigate = useNavigate();
   useEffect(() => {
     getProjects()
       .then(setProjects)
@@ -24,6 +24,10 @@ export default function ProjectList() {
     } catch (e) {
       alert(e.message);
     }
+  }
+  
+  function goToProject(id) {
+    navigate(`/projects/${id}/edit`);
   }
 
   return (
@@ -52,17 +56,14 @@ export default function ProjectList() {
                 </tr>
               )}
               {projects.map((project) => (
-                <tr key={project.id} className="hover:bg-gray-50">
+                <tr key={project.id} className="hover:bg-gray-50" onClick={() => goToProject(project.id)}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{project.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{project.client?.name || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {project.current_rate != null ? `$${parseFloat(project.current_rate).toFixed(2)}` : '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{project.description || '—'}</td>
-                  <td className="px-6 py-4 text-right text-sm space-x-3">
-                    <Link to={`/projects/${project.id}/edit`} className="text-indigo-600 hover:text-indigo-800">
-                      Edit
-                    </Link>
+                  <td className="px-6 py-4 text-right text-sm space-x-3">                   
                     <button onClick={() => handleDelete(project.id)} className="text-red-500 hover:text-red-700">
                       Delete
                     </button>
