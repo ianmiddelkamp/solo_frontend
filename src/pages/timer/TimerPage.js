@@ -79,7 +79,14 @@ export default function TimerPage() {
         await replaceTask(id);
         setTaskUpdate({ id, patch: { status: 'in_progress' } });
       } else {
-        setTaskId(id);
+        const confirmed = await confirm('Start timer with this task?', { title: 'Start timer?', confirmLabel: 'Start' });
+        if(confirmed){
+          await start(projectId, id);
+          setTaskUpdate({ id, patch: { status: 'in_progress' } });
+        }else{
+          setTaskId(id);
+        }
+      
       }
     }
    
