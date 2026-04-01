@@ -291,7 +291,7 @@ export default function TimesheetList() {
                               to={`/timesheets/${entry.id}/edit`}
                               state={entry.charge_code
                                 ? { chargeCodeId: entry.charge_code_id, clientId: entry.client_id }
-                                : { projectId: entry.project?.id }
+                                : { projectId: entry.project?.id, clientId: entry.project?.client_id }
                               }
                               className="text-indigo-600 hover:text-indigo-800"
                             >

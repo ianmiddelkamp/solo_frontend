@@ -24,11 +24,12 @@ export default function TimesheetForm() {
 
   // Detect mode from location state or default to project
   const initialMode = location.state?.chargeCodeId ? 'charge_code' : 'project';
+  const initialClient = location.state?.clientId
 
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(
     mode === 'project'
-      ? { ...EMPTY_PROJECT, project_id: location.state?.projectId || '' }
+      ? { ...EMPTY_PROJECT, project_id: location.state?.projectId || '', client_id: location.state?.clientId || '' }
       : { ...EMPTY_CHARGE, charge_code_id: location.state?.chargeCodeId || '', client_id: location.state?.clientId || '' }
   );
   const [projects, setProjects] = useState([]);
@@ -84,7 +85,7 @@ export default function TimesheetForm() {
           if (entry) {
             setForm({
               project_id: String(form.project_id),
-              client_id: String(entry.client_id || ''),
+              client_id: String(form.client_id || ''),
               date: entry.date,
               hours: entry.hours,
               description: entry.description || '',
