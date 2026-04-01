@@ -5,7 +5,7 @@ import { getClients } from '../../api/clients';
 import { getChargeCodes, createChargeCode } from '../../api/chargeCodes';
 import {
   createTimeEntry, updateTimeEntry,
-  getTimeEntries, getTimeEntry,
+  getTimeEntry,
   createChargeCodeTimeEntry, updateChargeCodeTimeEntry,
 } from '../../api/timeEntries';
 import { getTaskGroups } from '../../api/tasks';
@@ -24,7 +24,6 @@ export default function TimesheetForm() {
 
   // Detect mode from location state or default to project
   const initialMode = location.state?.chargeCodeId ? 'charge_code' : 'project';
-  const initialClient = location.state?.clientId
 
   const [mode, setMode] = useState(initialMode);
   const [form, setForm] = useState(
@@ -43,15 +42,10 @@ export default function TimesheetForm() {
 
   const timesProvided = form.start_time && form.stop_time;
 
-  // Load reference data
+  // load projects, clients, and charge code data
   useEffect(() => {
     getProjects()
-      .then((ps) => {
-        setProjects(ps);
-        if (!isEdit && mode === 'project' && !form.project_id && ps.length > 0) {
-          setForm((prev) => ({ ...prev, project_id: String(ps[0].id) }));
-        }
-      })
+      .then(setProjects)
       .catch((e) => setError(e.message));
 
     getClients().then(setClients).catch(() => {});
@@ -63,42 +57,22 @@ export default function TimesheetForm() {
   useEffect(() => {
     if (!isEdit) return;
 
-    if (mode === 'charge_code') {
-      getTimeEntry(id)
-        .then((entry) => {
-          setForm({
-            charge_code_id: String(entry.charge_code_id || ''),
-            client_id: String(entry.client_id || ''),
-            date: entry.date,
-            hours: entry.hours,
-            description: entry.description || '',
-            start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
-            stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
-          });
-        })
-        .catch((e) => setError(e.message));
-    } else {
-      if (!form.project_id) return;
-      getTimeEntries(form.project_id)
-        .then((entries) => {
-          const entry = entries.find((e) => String(e.id) === String(id));
-          if (entry) {
-            setForm({
-              project_id: String(form.project_id),
-              client_id: String(form.client_id || ''),
-              date: entry.date,
-              hours: entry.hours,
-              description: entry.description || '',
-              start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
-              stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
-              task_id: entry.task_id ? String(entry.task_id) : '',
-            });
-          }
-        })
-        .catch((e) => setError(e.message));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, mode, form.project_id]);
+    getTimeEntry(id)
+      .then((entry) => {
+        setForm({
+          project_id: String(entry.project_id || ''),
+          charge_code_id: String(entry.charge_code_id || ''),
+          client_id: String(entry.client_id || location.state?.clientId),
+          date: entry.date,
+          hours: entry.hours,
+          description: entry.description || '',
+          start_time: entry.started_at ? DateTime.fromISO(entry.started_at).toFormat('HH:mm') : '',
+          stop_time: entry.stopped_at ? DateTime.fromISO(entry.stopped_at).toFormat('HH:mm') : '',
+          task_id: entry.task_id ? String(entry.task_id) : '',
+        });
+      })
+      .catch((e) => setError(e.message));
+  }, []);
 
   // Load task groups when project changes
   useEffect(() => {
@@ -127,7 +101,15 @@ export default function TimesheetForm() {
     setForm((prev) => {
       const updated = { ...prev, [name]: value };
       // Clear project when client changes
-      if (name === 'client_id') updated.project_id = '';
+      if (name === 'client_id') {
+        updated.project_id = '';
+      } else if (name === 'project_id' && !prev.client_id ){
+        let project = projects.find( p => p.id === Number(value))
+        if(project){
+          updated.client_id = String(project.client_id)
+        }
+      
+      }
       const date = name === 'date' ? value : updated.date;
       const start = name === 'start_time' ? value : updated.start_time;
       const stop = name === 'stop_time' ? value : updated.stop_time;
