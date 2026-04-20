@@ -131,6 +131,7 @@ export default function TimesheetList() {
   function clientNameForEntry(entry) {
     return entry.project?.client?.name || entry.client?.name || '—';
   }
+  const sortableColumns = ['date', 'hours', 'client', 'project', 'task']
 
   const sortableColumns = ['date', 'hours', 'client', 'project', 'task'];
 
@@ -293,8 +294,8 @@ export default function TimesheetList() {
                       <td className="px-4 py-3 text-sm">
                         {invoiced
                           ? <Link to={`/invoices/${entry.invoice_line_item.invoice.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium">
-                              {entry.invoice_line_item.invoice.number}
-                            </Link>
+                            {entry.invoice_line_item.invoice.number}
+                          </Link>
                           : <span className="text-gray-400">Unbilled</span>
                         }
                       </td>

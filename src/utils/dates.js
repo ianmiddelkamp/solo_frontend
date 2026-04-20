@@ -5,7 +5,10 @@ export const today = () => DateTime.now().toISODate();
 export const firstOfMonth = () => DateTime.now().startOf('month').toISODate();
 
 export const formatDate = (str) =>
-  str ? DateTime.fromISO(str).toFormat('MMM d, yyyy') : '—';
+  str ? DateTime.fromISO(str).toLocal().toFormat('MMM d, yyyy') : '—';
+
+export const formatDateTime = (str) =>
+  str ? DateTime.fromISO(str).toLocal().toFormat('MMM d, yyyy HH:mm') : '—';
 
 export const elapsedSeconds = (startedAt) =>
   Math.floor(DateTime.now().diff(DateTime.fromISO(startedAt), 'seconds').seconds);
