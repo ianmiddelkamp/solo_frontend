@@ -6,16 +6,17 @@ import { getAllTimeEntries, deleteTimeEntry, deleteChargeCodeTimeEntry } from '.
 import PageHeader from '../../components/PageHeader';
 import { formatDateTime, formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
+import type { Client, Project, TimeEntry } from '../../types';
 
 export default function TimesheetList() {
   const navigate = useNavigate();
 
-  const [clients, setClients] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [entries, setEntries] = useState([]);
-  const [selected, setSelected] = useState(new Set());
+  const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState({
     clientId: '',
@@ -26,7 +27,7 @@ export default function TimesheetList() {
 
   const [sort, setSort] = useState({ column: 'date', direction: 'desc' });
 
-  function toggleSort(column) {
+  function toggleSort(column: string) {
     setSort((prev) =>
       prev.column === column
         ? { column, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
@@ -34,52 +35,47 @@ export default function TimesheetList() {
     );
   }
 
-  function sortIndicator(column) {
+  function sortIndicator(column: string) {
     if (sort.column !== column) return <span className="ml-1 text-gray-300">↕</span>;
     return <span className="ml-1">{sort.direction === 'asc' ? '↑' : '↓'}</span>;
   }
 
-  // Load reference data
   useEffect(() => {
-    getClients().then(setClients).catch(() => { });
-    getProjects().then(setProjects).catch(() => { });
+    getClients().then((data) => { if (data) setClients(data); }).catch(() => {});
+    getProjects().then((data) => { if (data) setProjects(data); }).catch(() => {});
   }, []);
 
-  // Filter projects by selected client
   const visibleProjects = filters.clientId
     ? projects.filter((p) => String(p.client?.id) === filters.clientId)
     : projects;
 
-  // Load entries whenever filters change
   const loadEntries = useCallback(() => {
     setLoading(true);
     setError(null);
     setSelected(new Set());
 
-    const params = {};
+    const params: Record<string, string> = {};
     if (filters.clientId) params.client_id = filters.clientId;
     if (filters.projectId) params.project_id = filters.projectId;
     if (filters.status !== 'all') params.status = filters.status;
     if (filters.hideChargeCodes) params.hide_charge_codes = 'true';
 
     getAllTimeEntries(params)
-      .then(setEntries)
+      .then((data) => { if (data) setEntries(data); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [filters]);
 
   useEffect(() => { loadEntries(); }, [loadEntries]);
 
-  function setFilter(key, value) {
+  function setFilter(key: string, value: string | boolean) {
     setFilters((prev) => {
       const next = { ...prev, [key]: value };
-      // Clear project when client changes
       if (key === 'clientId') next.projectId = '';
       return next;
     });
   }
 
-  // Selection
   function toggleAll() {
     if (selected.size === entries.length) {
       setSelected(new Set());
@@ -88,7 +84,7 @@ export default function TimesheetList() {
     }
   }
 
-  function toggleOne(id) {
+  function toggleOne(id: number) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -96,11 +92,8 @@ export default function TimesheetList() {
     });
   }
 
-  // Create Invoice button logic
   const selectedEntries = entries.filter((e) => selected.has(e.id));
-  const selectedTotalHours = selectedEntries.reduce((prev, curr) => {
-    return prev + curr.hours;
-  }, 0).toFixed(2);
+  const selectedTotalHours = selectedEntries.reduce((prev, curr) => prev + curr.hours, 0).toFixed(2);
   const allSelectedUnbilled = selectedEntries.length > 0 && selectedEntries.every((e) => !e.invoice_line_item);
   const selectedClientIds = new Set(
     selectedEntries.map((e) => e.project ? String(e.project.client_id) : String(e.client_id))
@@ -112,40 +105,40 @@ export default function TimesheetList() {
     navigate('/invoices/new', { state: { entries: selectedEntries, clientId } });
   }
 
-  // Delete
-  async function handleDelete(entry) {
+  async function handleDelete(entry: TimeEntry) {
     if (!await confirm('Delete this time entry?')) return;
     try {
       if (entry.charge_code) {
         await deleteChargeCodeTimeEntry(entry.id);
-      } else {
+      } else if (entry.project) {
         await deleteTimeEntry(entry.project.id, entry.id);
       }
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
       setSelected((prev) => { const next = new Set(prev); next.delete(entry.id); return next; });
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
-  function clientNameForEntry(entry) {
+  function clientNameForEntry(entry: TimeEntry) {
     return entry.project?.client?.name || entry.client?.name || '—';
   }
+
   const sortableColumns = ['date', 'hours', 'client', 'project', 'task'];
 
   const sortedEntries = [...entries].sort((a, b) => {
     const dir = sort.direction === 'asc' ? 1 : -1;
     switch (sort.column) {
-      case 'date':        return dir * a.date.localeCompare(b.date);
-      case 'hours':       return dir * (parseFloat(a.hours) - parseFloat(b.hours));
-      case 'client':      return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
-      case 'project':     return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
-      case 'task':        return dir * (a.task?.title || '').localeCompare(b.task?.title || '');
-      default:            return 0;
+      case 'date':    return dir * a.date.localeCompare(b.date);
+      case 'hours':   return dir * (a.hours - b.hours);
+      case 'client':  return dir * clientNameForEntry(a).localeCompare(clientNameForEntry(b));
+      case 'project': return dir * (a.project?.name || a.charge_code?.code || '').localeCompare(b.project?.name || b.charge_code?.code || '');
+      case 'task':    return dir * (a.task?.title || '').localeCompare(b.task?.title || '');
+      default:        return 0;
     }
   });
 
-  const totalHours = entries.reduce((sum, e) => sum + parseFloat(e.hours || 0), 0);
+  const totalHours = entries.reduce((sum, e) => sum + e.hours, 0);
   const allChecked = entries.length > 0 && selected.size === entries.length;
   const someChecked = selected.size > 0 && selected.size < entries.length;
 
@@ -153,7 +146,6 @@ export default function TimesheetList() {
     <div className="p-8">
       <PageHeader title="Timesheets" actionLabel="+ Log Time" actionTo="/timesheets/new" />
 
-      {/* Filters */}
       <div className="mb-5 flex flex-wrap items-center gap-3">
         <select
           value={filters.clientId}
@@ -279,7 +271,7 @@ export default function TimesheetList() {
                       <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDate(entry.date)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDateTime(entry.started_at)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{formatDateTime(entry.stopped_at)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{parseFloat(entry.hours).toFixed(2)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{entry.hours.toFixed(2)}</td>
                       <td className="px-4 py-3 text-sm text-gray-500">{clientNameForEntry(entry)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {entry.project
@@ -291,8 +283,8 @@ export default function TimesheetList() {
                       <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{entry.description || '—'}</td>
                       <td className="px-4 py-3 text-sm">
                         {invoiced
-                          ? <Link to={`/invoices/${entry.invoice_line_item.invoice.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium">
-                            {entry.invoice_line_item.invoice.number}
+                          ? <Link to={`/invoices/${entry.invoice_line_item!.invoice!.id}`} className="text-indigo-600 hover:text-indigo-800 font-medium">
+                            {entry.invoice_line_item!.invoice!.number}
                           </Link>
                           : <span className="text-gray-400">Unbilled</span>
                         }

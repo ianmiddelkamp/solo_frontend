@@ -12,7 +12,19 @@ const EMPTY = {
   tax_rate: '',
 };
 
-function Field({ label, name, value, onChange, type = 'text', placeholder, hint }) {
+type FormState = typeof EMPTY;
+
+interface FieldProps {
+  label: string;
+  name: keyof FormState;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  placeholder?: string;
+  hint?: string;
+}
+
+function Field({ label, name, value, onChange, type = 'text', placeholder, hint }: FieldProps) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -29,7 +41,17 @@ function Field({ label, name, value, onChange, type = 'text', placeholder, hint 
   );
 }
 
-function TextArea({ label, name, value, onChange, placeholder, hint, rows = 3 }) {
+interface TextAreaProps {
+  label: string;
+  name: keyof FormState;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  hint?: string;
+  rows?: number;
+}
+
+function TextArea({ label, name, value, onChange, placeholder, hint, rows = 3 }: TextAreaProps) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -47,18 +69,19 @@ function TextArea({ label, name, value, onChange, placeholder, hint, rows = 3 })
 }
 
 export default function SettingsPage() {
-  const [form, setForm] = useState(EMPTY);
-  const [logoDataUri, setLogoDataUri] = useState(null);
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [logoDataUri, setLogoDataUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState(null);
-  const logoInputRef = useRef(null);
+  const [error, setError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getBusinessProfile()
       .then((p) => {
+        if (!p) return;
         setForm({
           name:                  p.name                  ?? '',
           email:                 p.email                 ?? '',
@@ -82,21 +105,21 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  function handleChange(e) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setSuccess(false);
   }
 
-  async function handleLogoChange(e) {
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingLogo(true);
     setError(null);
     try {
       const res = await uploadBusinessLogo(file);
-      setLogoDataUri(res.logo_data_uri);
+      setLogoDataUri(res.logo_data_uri ?? null);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = '';
@@ -109,11 +132,11 @@ export default function SettingsPage() {
       await deleteBusinessLogo();
       setLogoDataUri(null);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     }
   }
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError(null);
@@ -122,7 +145,7 @@ export default function SettingsPage() {
       await updateBusinessProfile(form);
       setSuccess(true);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setSaving(false);
     }
@@ -146,7 +169,6 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
 
-        {/* Business info */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Business</h3>
           <div className="space-y-4">
@@ -166,7 +188,6 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Address */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Address</h3>
           <div className="space-y-3">
@@ -181,12 +202,9 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Document styling */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Document Styling</h3>
           <div className="space-y-4">
-
-            {/* Logo */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Logo</label>
               {logoDataUri ? (
@@ -221,7 +239,6 @@ export default function SettingsPage() {
               <p className="mt-1 text-xs text-gray-400">PNG, JPG, SVG — shown in place of the document type label when set.</p>
             </div>
 
-            {/* Brand colour */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Brand Colour</label>
               <div className="flex items-center gap-3">
@@ -243,15 +260,12 @@ export default function SettingsPage() {
                 <span className="text-xs text-gray-400">Used for headers and accents on all documents.</span>
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* Document options */}
         <div>
           <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Document Options</h3>
           <div className="space-y-4">
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Default Payment Terms</label>
               <select
@@ -304,7 +318,6 @@ export default function SettingsPage() {
               placeholder="This is an estimate only. The final invoice may vary based on actual hours worked."
               hint="Appears at the bottom of estimates. Leave blank for the default."
             />
-
           </div>
         </div>
 

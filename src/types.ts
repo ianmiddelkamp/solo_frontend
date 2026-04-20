@@ -108,8 +108,20 @@ export interface BusinessProfile {
   name: string;
   email: string | null;
   phone: string | null;
-  address: string | null;
+  address1?: string | null;
+  address2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postcode?: string | null;
+  country?: string | null;
   logo_url: string | null;
+  logo_data_uri?: string | null;
+  hst_number?: string | null;
+  primary_color?: string | null;
+  invoice_footer?: string | null;
+  estimate_footer?: string | null;
+  default_payment_terms?: string | null;
+  tax_rate?: string | null;
 }
 
 export interface Estimate {
