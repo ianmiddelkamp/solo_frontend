@@ -18,7 +18,22 @@ export const deleteTimeEntry = (projectId, id) =>
 // Top-level (charge code entries and all-entries list)
 export const getAllTimeEntries = (params = {}) => {
   const qs = new URLSearchParams(params).toString();
-  return apiFetch(`/time_entries${qs ? `?${qs}` : ''}`);
+  return apiFetch(`/time_entries${qs ? `?${qs}` : ''}`).then(entries => {
+    if (entries?.length) {
+      entries.forEach(entry => {
+        let f = 0
+        if (entry.hours) {
+
+          try {
+            f = parseFloat(entry.hours)            
+          } catch {
+          }
+        }
+        entry.hours = f;
+      })
+    }
+    return entries
+  });
 };
 export const getTimeEntry = (id) => apiFetch(`/time_entries/${id}`);
 export const createChargeCodeTimeEntry = (data) =>
