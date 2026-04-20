@@ -1,6 +1,6 @@
 import { getToken } from './index';
 
-const base = () => process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const base = () => import.meta.env.VITE_API_URL || 'http://localhost:3000';
 const authHeader = () => ({ Authorization: `Bearer ${getToken()}` });
 
 export const parseSow = async (projectId, fileOrText, onStatus) => {

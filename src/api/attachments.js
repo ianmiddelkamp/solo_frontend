@@ -9,7 +9,7 @@ export const uploadAttachment = (projectId, file) => {
   const body = new FormData();
   body.append('file', file);
   // FormData — don't set Content-Type, let the browser set multipart boundary
-  return fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}${base(projectId)}`, {
+  return fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${base(projectId)}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${getToken()}` },
     body,
@@ -22,7 +22,7 @@ export const uploadAttachment = (projectId, file) => {
 
 export const downloadAttachment = async (projectId, id, filename) => {
   const res = await fetch(
-    `${process.env.REACT_APP_API_URL || 'http://localhost:3000'}${base(projectId)}/${id}`,
+    `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${base(projectId)}/${id}`,
     { headers: { Authorization: `Bearer ${getToken()}` } }
   );
   if (!res.ok) throw new Error('Download failed');
