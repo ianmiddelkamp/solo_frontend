@@ -1,19 +1,36 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { getTimer, startTimer, stopTimer, updateTimer, cancelTimer } from '../api/timer';
 import { elapsedSeconds } from '../utils/dates';
+import type { TimerSession } from '../types';
 
-const TimerContext = createContext(null);
+interface TimerContextValue {
+  session: TimerSession | null;
+  elapsed: number;
+  projectId: string;
+  taskId: number | null;
+  description: string;
+  loading: boolean;
+  setProjectId: (id: string) => void;
+  setTaskId: (id: number | null) => void;
+  changeDescription: (value: string) => void;
+  replaceTask: (tid: number) => Promise<void>;
+  start: (pid: number, tid: number | null) => Promise<void>;
+  stop: (pid: number, desc: string) => Promise<void>;
+  cancel: () => Promise<void>;
+}
 
-export function TimerProvider({ children }) {
-  const [session, setSession]       = useState(null);
-  const [elapsed, setElapsed]       = useState(0);
-  const [projectId, setProjectId]   = useState('');
-  const [taskId, setTaskId]         = useState(null);
-  const [description, setDescription] = useState('');
-  const [loading, setLoading]       = useState(true);
-  const debounceRef = useRef(null);
+const TimerContext = createContext<TimerContextValue | null>(null);
 
-  // Load active session on mount
+export function TimerProvider({ children }: { children: ReactNode }) {
+  const [session, setSession]           = useState<TimerSession | null>(null);
+  const [elapsed, setElapsed]           = useState(0);
+  const [projectId, setProjectId]       = useState('');
+  const [taskId, setTaskId]             = useState<number | null>(null);
+  const [description, setDescription]   = useState('');
+  const [loading, setLoading]           = useState(true);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     getTimer()
       .then((active) => {
@@ -28,7 +45,6 @@ export function TimerProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Tick
   useEffect(() => {
     if (!session) return;
     const interval = setInterval(() => {
@@ -37,8 +53,9 @@ export function TimerProvider({ children }) {
     return () => clearInterval(interval);
   }, [session]);
 
-  async function start(pid, tid) {
+  async function start(pid: number, tid: number | null) {
     const active = await startTimer(pid, tid);
+    if (!active) return;
     setSession(active);
     setProjectId(String(active.project_id));
     setTaskId(active.task_id || null);
@@ -46,7 +63,7 @@ export function TimerProvider({ children }) {
     setElapsed(0);
   }
 
-  async function stop(pid, desc) {
+  async function stop(pid: number, desc: string) {
     await stopTimer(pid, desc);
     setSession(null);
     setElapsed(0);
@@ -62,14 +79,15 @@ export function TimerProvider({ children }) {
     setTaskId(null);
   }
 
-  function changeDescription(value) {
+  function changeDescription(value: string) {
     setDescription(value);
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => updateTimer(value), 800);
   }
 
-  async function replaceTask(tid) {
+  async function replaceTask(tid: number) {
     const updated = await updateTimer(description, tid);
+    if (!updated) return;
     setSession(updated);
     setTaskId(updated.task_id || null);
   }
@@ -85,6 +103,8 @@ export function TimerProvider({ children }) {
   );
 }
 
-export function useTimer() {
-  return useContext(TimerContext);
+export function useTimer(): TimerContextValue {
+  const ctx = useContext(TimerContext);
+  if (!ctx) throw new Error('useTimer must be used within TimerProvider');
+  return ctx;
 }
