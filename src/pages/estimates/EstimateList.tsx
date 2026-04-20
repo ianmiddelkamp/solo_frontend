@@ -5,26 +5,27 @@ import PageHeader from '../../components/PageHeader';
 import { confirm } from '../../services/dialog';
 import { formatDate } from '../../utils/dates';
 import { STATUS_STYLES } from '../../utils/constants';
+import type { Estimate } from '../../types';
 
 export default function EstimateList() {
-  const [estimates, setEstimates] = useState([]);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getEstimates()
-      .then(setEstimates)
+      .then((data) => { if (data) setEstimates(data); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleDelete(id) {
+  async function handleDelete(id: number) {
     if (!await confirm('Delete this estimate?')) return;
     try {
       await deleteEstimate(id);
       setEstimates((prev) => prev.filter((e) => e.id !== id));
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
@@ -65,11 +66,11 @@ export default function EstimateList() {
                   <td className="px-6 py-4 text-sm text-gray-500">{est.project?.name || '—'}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{est.project?.client?.name || '—'}</td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {est.total != null ? `$${parseFloat(est.total).toFixed(2)}` : '—'}
+                    {est.total != null ? `$${parseFloat(String(est.total)).toFixed(2)}` : '—'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">{formatDate(est.created_at)}</td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[est.status]}`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[est.status] ?? ''}`}>
                       {est.status}
                     </span>
                   </td>

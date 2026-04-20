@@ -1,25 +1,24 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { login } from "../../api/auth";
-import { setToken } from "../../api/index";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { login } from '../../api/auth';
+import { setToken } from '../../api/index';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
       const data = await login(email, password);
-      setToken(data.token);
-      navigate("/");
+      if (data) { setToken(data.token); navigate('/'); }
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -64,7 +63,7 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-indigo-600 text-white rounded px-4 py-2 text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
       </div>

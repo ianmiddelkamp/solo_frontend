@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import LoginPage from './pages/auth/LoginPage';
@@ -20,8 +21,8 @@ import { getToken } from './api/index';
 import { TimerProvider } from './context/TimerContext';
 import DialogProvider from './components/DialogProvider';
 
-function RequireAuth({ children }) {
-  return getToken() ? children : <Navigate to="/login" replace />;
+function RequireAuth({ children }: { children: ReactNode }) {
+  return getToken() ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
 export default function App() {

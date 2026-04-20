@@ -1,6 +1,12 @@
 export interface Client {
   id: number;
   name: string;
+  contact_name?: string | null;
+  email1?: string | null;
+  phone1?: string | null;
+  current_rate?: number | null;
+  address?: string | null;
+  notes?: string | null;
 }
 
 export interface Project {
@@ -8,6 +14,8 @@ export interface Project {
   name: string;
   client_id: number;
   client?: Client;
+  description?: string | null;
+  current_rate?: number | null;
 }
 
 export interface Task {
@@ -38,6 +46,12 @@ export interface ChargeCode {
 export interface Invoice {
   id: number;
   number: string;
+  status: string;
+  total: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  client?: Client;
+  notes?: string | null;
 }
 
 export interface InvoiceLineItem {
@@ -97,6 +111,7 @@ export interface Estimate {
   status: string;
   total: number | null;
   created_at: string;
+  project?: Project & { client?: Client };
 }
 
 export interface Attachment {

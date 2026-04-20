@@ -4,32 +4,33 @@ import { getInvoices, deleteInvoice } from '../../api/invoices';
 import PageHeader from '../../components/PageHeader';
 import { confirm } from '../../services/dialog';
 import { formatDate } from '../../utils/dates';
+import type { Invoice } from '../../types';
 
-const STATUS_STYLES = {
+const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
-  sent:    'bg-blue-100 text-blue-800',
-  paid:    'bg-green-100 text-green-800',
+  sent: 'bg-blue-100 text-blue-800',
+  paid: 'bg-green-100 text-green-800',
 };
 
 export default function InvoiceList() {
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     getInvoices()
-      .then(setInvoices)
+      .then((data) => { if (data) setInvoices(data); })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);
 
-  async function handleDelete(id) {
+  async function handleDelete(id: number) {
     if (!await confirm('Delete this invoice?')) return;
     try {
       await deleteInvoice(id);
       setInvoices((prev) => prev.filter((inv) => inv.id !== id));
     } catch (e) {
-      alert(e.message);
+      alert((e as Error).message);
     }
   }
 
@@ -73,15 +74,15 @@ export default function InvoiceList() {
                       : formatDate(inv.start_date)}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                    {inv.total != null ? `$${parseFloat(inv.total).toFixed(2)}` : '—'}
+                    {inv.total != null ? `$${parseFloat(String(inv.total)).toFixed(2)}` : '—'}
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[inv.status]}`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${STATUS_STYLES[inv.status] ?? ''}`}>
                       {inv.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right text-sm space-x-3">
-                    <Link to={`/invoices/${inv.id}`} className="text-indigo-600 hover:text-indigo-800">View</Link>                   
+                    <Link to={`/invoices/${inv.id}`} className="text-indigo-600 hover:text-indigo-800">View</Link>
                     <button onClick={() => handleDelete(inv.id)} className="text-red-500 hover:text-red-700">Delete</button>
                   </td>
                 </tr>

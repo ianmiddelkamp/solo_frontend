@@ -3,32 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { getProjects } from '../../api/projects';
 import { createEstimate } from '../../api/estimates';
 import PageHeader from '../../components/PageHeader';
+import type { Project } from '../../types';
 
 export default function EstimateForm() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState('');
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
     getProjects()
       .then((ps) => {
+        if (!ps) return;
         setProjects(ps);
         if (ps.length > 0) setProjectId(String(ps[0].id));
       })
       .catch((e) => setError(e.message));
   }, []);
 
-  async function handleSubmit(e) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setGenerating(true);
     setError(null);
     try {
       const estimate = await createEstimate({ project_id: projectId });
-      navigate(`/estimates/${estimate.id}`);
+      if (estimate) navigate(`/estimates/${estimate.id}`);
     } catch (err) {
-      setError(err.message);
+      setError((err as Error).message);
     } finally {
       setGenerating(false);
     }
