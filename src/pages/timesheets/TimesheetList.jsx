@@ -131,8 +131,6 @@ export default function TimesheetList() {
   function clientNameForEntry(entry) {
     return entry.project?.client?.name || entry.client?.name || '—';
   }
-  const sortableColumns = ['date', 'hours', 'client', 'project', 'task']
-
   const sortableColumns = ['date', 'hours', 'client', 'project', 'task'];
 
   const sortedEntries = [...entries].sort((a, b) => {
