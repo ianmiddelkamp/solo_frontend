@@ -93,7 +93,9 @@ export interface Estimate {
   id: number;
   project_id: number;
   title: string;
+  number: string;
   status: string;
+  total: number | null;
   created_at: string;
 }
 
@@ -101,4 +103,6 @@ export interface Attachment {
   id: number;
   filename: string;
   url: string;
+  content_type: string;
+  byte_size: number;
 }

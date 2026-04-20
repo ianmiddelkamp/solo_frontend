@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAttachments, uploadAttachment, downloadAttachment, deleteAttachment } from '../api/attachments';
 import { confirm } from '../services/dialog';
+import type { Attachment } from '../types';
 
-const FILE_ICONS = {
+const FILE_ICONS: Record<string, string> = {
   'application/pdf': '📄',
   'image/png': '🖼️', 'image/jpeg': '🖼️', 'image/gif': '🖼️', 'image/webp': '🖼️',
   'text/plain': '📝', 'text/csv': '📊', 'text/markdown': '📝',
   'application/zip': '🗜️',
 };
 
-function fileIcon(contentType) {
+function fileIcon(contentType: string): string {
   if (FILE_ICONS[contentType]) return FILE_ICONS[contentType];
   if (contentType?.includes('word')) return '📝';
   if (contentType?.includes('excel') || contentType?.includes('spreadsheet')) return '📊';
@@ -17,25 +18,25 @@ function fileIcon(contentType) {
   return '📎';
 }
 
-function formatBytes(bytes) {
+function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export default function ProjectAttachments({ projectId }) {
-  const [attachments, setAttachments] = useState([]);
+export default function ProjectAttachments({ projectId }: { projectId: number }) {
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!projectId) return;
-    getAttachments(projectId).then(setAttachments).catch((e) => setError(e.message));
+    getAttachments(projectId).then((data) => { if (data) setAttachments(data); }).catch((e) => setError(e.message));
   }, [projectId]);
 
-  async function handleFiles(files) {
+  async function handleFiles(files: FileList | null) {
     if (!files?.length) return;
     setUploading(true);
     setError(null);
@@ -45,28 +46,28 @@ export default function ProjectAttachments({ projectId }) {
         setAttachments((prev) => [...prev, attachment]);
       }
     } catch (e) {
-      setError(e.message);
+      setError((e as Error).message);
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
     }
   }
 
-  async function handleDelete(attachment) {
+  async function handleDelete(attachment: Attachment) {
     if (!await confirm(`Delete "${attachment.filename}"?`)) return;
     await deleteAttachment(projectId, attachment.id);
     setAttachments((prev) => prev.filter((a) => a.id !== attachment.id));
   }
 
-  async function handleDownload(attachment) {
+  async function handleDownload(attachment: Attachment) {
     try {
       await downloadAttachment(projectId, attachment.id, attachment.filename);
     } catch (e) {
-      setError(e.message);
+      setError((e as Error).message);
     }
   }
 
-  function onDrop(e) {
+  function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     handleFiles(e.dataTransfer.files);
@@ -80,7 +81,6 @@ export default function ProjectAttachments({ projectId }) {
         <div className="mb-3 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">{error}</div>
       )}
 
-      {/* Drop zone */}
       <div
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
@@ -103,7 +103,6 @@ export default function ProjectAttachments({ projectId }) {
         />
       </div>
 
-      {/* File list */}
       {attachments.length > 0 && (
         <ul className="mt-4 divide-y divide-gray-100 bg-white rounded-lg border border-gray-200 shadow-sm">
           {attachments.map((a) => (

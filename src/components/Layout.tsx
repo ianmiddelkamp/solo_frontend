@@ -24,7 +24,6 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
       <aside className="w-56 bg-gray-900 text-white flex flex-col shrink-0">
         <div className="px-4 py-4 border-b border-gray-700">
           <img src={logo} alt="Solo" className="h-8 w-auto mx-auto" />
@@ -57,7 +56,6 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
