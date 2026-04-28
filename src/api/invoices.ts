@@ -42,6 +42,10 @@ export const markAsPaid = (id: number, amountPaid: number, paidAt?: string) =>
 export const sendInvoice = (id: number) =>
   apiFetch<{ message: string }>(`/invoices/${id}/send_invoice`, { method: 'POST' });
 
+
+export const sendReceipt = (id: number) =>
+  apiFetch<{ message: string }>(`/invoices/${id}/send_receipt`, { method: 'POST' });
+
 export const regeneratePdf = (id: number) =>
   apiFetch(`/invoices/${id}/regenerate_pdf`, { method: 'POST' });
 

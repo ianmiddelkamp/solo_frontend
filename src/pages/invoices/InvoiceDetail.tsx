@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getInvoice, updateInvoice, deleteInvoice, downloadPdf, regeneratePdf, sendInvoice, markAsPaid } from '../../api/invoices';
+import { getInvoice, updateInvoice, deleteInvoice, downloadPdf, regeneratePdf, sendInvoice, markAsPaid, sendReceipt } from '../../api/invoices';
 import { getBusinessProfile } from '../../api/businessProfile';
 import { formatDate } from '../../utils/dates';
 import { confirm } from '../../services/dialog';
@@ -106,6 +106,21 @@ export default function InvoiceDetail() {
     }
   }
 
+  async function handleSendReceipt() {
+    if (!invoice) return;
+    if (!await confirm(`Send paid receipt to ${invoice.client?.email1}?`, { title: 'Send Receipt', confirmLabel: 'Send', danger: false })) return;
+    setSending(true);
+    try {
+      const res = await sendReceipt(id);
+      if (res) alert(res.message);
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+
   async function handleMarkAsSent() {
     if (!invoice) return;
     try {
@@ -165,12 +180,23 @@ export default function InvoiceDetail() {
           >
             Download PDF
           </button>
-          <button
-            onClick={openPaymentDialog}
-            className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-          >
-            Mark As Paid
-          </button>
+          {invoice.status !== 'paid' && (
+            <button
+              onClick={openPaymentDialog}
+              className="px-4 py-2 border border-gray-300 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+            >
+              Mark As Paid
+            </button>
+          )}
+          {invoice.status === 'paid' && (
+            <button
+              onClick={handleSendReceipt}
+              disabled={sending}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            >
+              {sending ? 'Sending…' : 'Send Receipt'}
+            </button>
+          )}
           <button
             onClick={handleRegeneratePdf}
             disabled={regenerating}
@@ -178,16 +204,29 @@ export default function InvoiceDetail() {
           >
             {regenerating ? 'Regenerating…' : 'Regenerate PDF'}
           </button>
-          <button
-            onClick={handleDelete}
-            className="px-4 py-2 border border-red-200 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
-          >
-            Delete
-          </button>
+          {invoice.status !== 'paid' && (
+            <button
+              onClick={handleDelete}
+              className="px-4 py-2 border border-red-200 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 flex flex-col" style={{ minHeight: '1050px' }}>
+      <div className="bg-white rounded-lg shadow p-6 flex flex-col relative overflow-hidden" style={{ minHeight: '1050px' }}>
+        {invoice.status === 'paid' && (
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            transform: 'translate(-50%, -50%) rotate(-35deg)',
+            fontSize: '96px', fontWeight: 900, letterSpacing: '0.1em',
+            color: 'rgba(34,197,94,0.2)', pointerEvents: 'none', zIndex: 10,
+            userSelect: 'none',
+          }}>
+            PAID
+          </div>
+        )}
         <div className="flex justify-between items-start">
           <div>
             {business?.logo_data_uri ? (
@@ -282,6 +321,18 @@ export default function InvoiceDetail() {
                   <span className="text-xs font-semibold text-gray-500 uppercase tracking-widest">Total</span>
                   <span className="text-2xl font-bold text-gray-900">${(invoice.total || 0).toFixed(2)}</span>
                 </div>
+                {invoice.status === 'paid' && <>
+                  <div className="flex justify-between gap-16 pt-1 border-t border-gray-200">
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">Amount Paid</span>
+                    <span className="text-sm text-green-600 font-medium">${(invoice.amount_paid || 0).toFixed(2)}</span>
+                  </div>
+                  {invoice.paid_at && (
+                    <div className="flex justify-between gap-16">
+                      <span className="text-xs text-gray-500 uppercase tracking-widest">Payment Date</span>
+                      <span className="text-sm text-gray-700">{formatDate(invoice.paid_at)}</span>
+                    </div>
+                  )}
+                </>}
               </div>
             </div>
           );
