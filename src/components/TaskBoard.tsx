@@ -79,6 +79,45 @@ function StatusSelect({ status, onChange }: StatusSelectProps) {
     </select>
   );
 }
+interface EstimateTimeQuickSelection {
+  timeInMins: number,
+  label: string
+}
+
+const quickSelections: EstimateTimeQuickSelection[] = [
+  {
+    timeInMins: 5,
+    label: "5 Mins"
+  },
+  {
+    timeInMins: 10,
+    label: "10 Mins"
+  },
+  {
+    timeInMins: 15,
+    label: "15 Mins"
+  },
+  {
+    timeInMins: 30,
+    label: "30 Mins"
+  },
+  {
+    timeInMins: 45,
+    label: "45 Mins"
+  },
+  {
+    timeInMins: 60,
+    label: "1 Hour"
+  },
+  {
+    timeInMins: 90,
+    label: "1.5 Hour"
+  },
+  {
+    timeInMins: 120,
+    label: "2 Hour"
+  },
+]
 
 interface TaskItemProps {
   task: Task;
@@ -120,6 +159,14 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
   async function handleStatusChange(next: string) {
     await updateTask(projectId, groupId, task.id, { status: next });
     onUpdate(task.id, { status: next });
+  }
+
+  function setQuickSelection(timeInMins: number) {
+    if (timeInMins <= 0) return;
+    let hours = timeInMins / 60
+    let str = String(hours.toFixed(2))
+    setEstimate(str)
+    //commitEstimate()
   }
 
   async function commitEstimate() {
@@ -175,9 +222,8 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
         {onSelect && (
           <button
             onClick={() => onSelect(selected ? null : task.id)}
-            className={`flex-shrink-0 text-xs px-2 py-0.5 rounded font-medium transition-colors ${
-              selected ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-indigo-600'
-            }`}
+            className={`flex-shrink-0 text-xs px-2 py-0.5 rounded font-medium transition-colors ${selected ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-indigo-600'
+              }`}
             title={selected ? 'Deselect task' : 'Select for timer'}
           >
             {selected ? '● Selected' : 'Select'}
@@ -194,21 +240,37 @@ function TaskItem({ task, projectId, groupId, onUpdate, onDelete, onSelect, sele
       <div className="mt-1.5 ml-6 flex items-center gap-3 flex-wrap">
         <StatusSelect status={task.status} onChange={handleStatusChange} />
         {editingEstimate ? (
-          <input
-            ref={estimateRef}
-            type="number"
-            min="0.01"
-            step="0.25"
-            value={estimate}
-            onChange={(e) => setEstimate(e.target.value)}
-            onBlur={commitEstimate}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitEstimate();
-              if (e.key === 'Escape') { setEstimate(task.estimated_hours != null ? String(task.estimated_hours) : ''); setEditingEstimate(false); }
-            }}
-            placeholder="0.00"
-            className="w-16 text-xs border-b border-indigo-400 outline-none bg-transparent text-gray-700"
-          />
+          <>
+            <input
+              ref={estimateRef}
+              type="number"
+              min="0.01"
+              step="0.25"
+              value={estimate}
+              onChange={(e) => setEstimate(e.target.value)}
+              onBlur={commitEstimate}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEstimate();
+                if (e.key === 'Escape') { setEstimate(task.estimated_hours != null ? String(task.estimated_hours) : ''); setEditingEstimate(false); }
+              }}
+              placeholder="0.00"
+              className="w-16 text-xs border-b border-indigo-400 outline-none bg-transparent text-gray-700"
+            />
+            <div className="flex items-center gap-1">
+              {quickSelections.map(selection => (
+                <button
+                  onMouseDown={(e) => { e.preventDefault(); setQuickSelection(selection.timeInMins); }}
+                  key={selection.timeInMins}
+                  className="text-xs text-gray-400 hover:text-indigo-600"
+                  title={`Quick Select ${selection.label}`}
+                >
+                  {selection.label}
+                </button>
+              )
+
+              )}
+            </div>
+          </>
         ) : (
           <button
             onClick={() => setEditingEstimate(true)}
@@ -464,7 +526,7 @@ export default function TaskBoard({ projectId, selectedTaskId, onSelectTask, tas
           if (task) groupId = g.id;
           return { ...g, tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, ...u.patch } : t)) };
         });
-        if (groupId) updateTask(projectId, groupId, taskId, u.patch).catch(() => {});
+        if (groupId) updateTask(projectId, groupId, taskId, u.patch).catch(() => { });
         return next;
       });
     });
